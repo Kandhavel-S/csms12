@@ -116,8 +116,8 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   useEffect(() => {
     const fetchDropdownUsers = async () => {
       const [facultyRes, expertRes] = await Promise.all([
-        fetch("http://localhost:5000/api/auth/by-role?role=faculty"),
-        fetch("http://localhost:5000/api/auth/by-role?role=subject-expert"),
+        fetch("https://csms-x9aw.onrender.com/api/auth/by-role?role=faculty"),
+        fetch("https://csms-x9aw.onrender.com/api/auth/by-role?role=subject-expert"),
       ]);
 
       const facultyNames = await facultyRes.json();
@@ -136,7 +136,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   
   const fetchSubjects = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/get-subjects?createdBy=${user._id}`);
+      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/get-subjects?createdBy=${user._id}`);
       const data = await res.json();
       setSubjects(data);
       console.log("📦 Subjects fetched:", data);
@@ -154,7 +154,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         throw new Error("Authentication required. Please log in again.");
       }
 
-      const res = await fetch("http://localhost:5000/api/auth/hod/regulations", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -263,7 +263,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         throw new Error("Authentication required. Please log in again.");
       }
 
-      const res = await fetch(`http://localhost:5000/api/auth/hod/regulation-version/${versionId}`, {
+      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/hod/regulation-version/${versionId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -306,7 +306,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const handleAddSubject = async () => {
   if (newSubjectCode && newSubjectName) {
     try {
-      const res = await fetch("http://localhost:5000/api/auth/add-subject", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/add-subject", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -322,7 +322,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
       if (!res.ok) throw new Error(data.error || "Error adding subject");
 
       // Refetch subjects after adding
-      const refetch = await fetch(`http://localhost:5000/api/auth/get-subjects?createdBy=${user._id}`);
+      const refetch = await fetch(`https://csms-x9aw.onrender.com/api/auth/get-subjects?createdBy=${user._id}`);
 
       const updatedSubjects = await refetch.json();
       setSubjects(updatedSubjects);
@@ -352,7 +352,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     if (!selectedSubjectId || !selectedFaculty) return;
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/update-fac-exp", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/update-fac-exp", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -379,7 +379,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     if (!selectedSubjectId || !selectedExpert) return;
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/update-fac-exp", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/update-fac-exp", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -418,7 +418,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   if (!selectedSubjectId) return;
 
   try {
-    const res = await fetch(`http://localhost:5000/api/auth/edit-subjects/${selectedSubjectId}`, {
+    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/edit-subjects/${selectedSubjectId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -464,7 +464,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
           throw new Error("No token found. Please log in again.");
         }
 
-        const res = await fetch("http://localhost:5000/api/auth/assign-faculty", {
+        const res = await fetch("https://csms-x9aw.onrender.com/api/auth/assign-faculty", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -501,7 +501,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
 
     const handleApprove = async (subjectId: string) => {
   try {
-    const res = await fetch(`http://localhost:5000/api/auth/subject/${subjectId}/approve`, {
+    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/subject/${subjectId}/approve`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
     });
@@ -527,7 +527,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
 
 const handleReject = async (subjectId: string) => {
   try {
-    const res = await fetch(`http://localhost:5000/api/auth/subject/${subjectId}/reject`, {
+    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/subject/${subjectId}/reject`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
     });
@@ -746,7 +746,7 @@ const handleReject = async (subjectId: string) => {
                           onClick={async () => {
                             setCreating(true);
                             try {
-                              const res = await fetch("http://localhost:5000/api/auth/assign-expert", {
+                              const res = await fetch("https://csms-x9aw.onrender.com/api/auth/assign-expert", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
@@ -1042,7 +1042,7 @@ const handleReject = async (subjectId: string) => {
                      <TableCell className="flex flex-wrap gap-2">
                         {subject.syllabusUrl && (
                           <a
-                            href={`http://localhost:5000/api/auth/file/${subject.syllabusUrl}`}
+                            href={`https://csms-x9aw.onrender.com/api/auth/file/${subject.syllabusUrl}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             download
@@ -1227,7 +1227,7 @@ const handleReject = async (subjectId: string) => {
                               </div>
                               {version.curriculumUrl && (
                                 <a
-                                  href={`http://localhost:5000/api/auth/file/${version.curriculumUrl}`}
+                                  href={`https://csms-x9aw.onrender.com/api/auth/file/${version.curriculumUrl}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >

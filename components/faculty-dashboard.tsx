@@ -110,7 +110,7 @@ export default function FacultyDashboard({ user }: FacultyDashboardProps) {
 
 
   const fetchSubjects = async () => {
-    const res = await fetch(`http://localhost:5000/api/auth/faculty-subjects/${user._id}`);
+    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/faculty-subjects/${user._id}`);
     const data = await res.json();
 
     const formatted = data.map((subject: any, idx: number) => ({
@@ -149,7 +149,7 @@ const handleSendToExpert = async (subjectId: string, file: File) => {
     const formData = new FormData();
     formData.append("file", file);
 
-    const uploadRes = await fetch("http://localhost:5000/api/auth/upload", {
+    const uploadRes = await fetch("https://csms-x9aw.onrender.com/api/auth/upload", {
       method: "POST",
       body: formData,
     });
@@ -157,7 +157,7 @@ const handleSendToExpert = async (subjectId: string, file: File) => {
     const { fileId } = await uploadRes.json();
     console.log("Uploaded file ID:", fileId);
 
-    await fetch("http://localhost:5000/api/auth/faculty-upload", {
+    await fetch("https://csms-x9aw.onrender.com/api/auth/faculty-upload", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -179,7 +179,7 @@ const handleSendToHOD = async (subjectId: string, file: File) => {
     const formData = new FormData();
     formData.append("file", file);
 
-    const uploadRes = await fetch("http://localhost:5000/api/auth/upload", {
+    const uploadRes = await fetch("https://csms-x9aw.onrender.com/api/auth/upload", {
       method: "POST",
       body: formData,
     });
@@ -191,7 +191,7 @@ const handleSendToHOD = async (subjectId: string, file: File) => {
     if (!fileId) throw new Error("File upload failed");
 
     // Link file to subject and update status
-    const res = await fetch("http://localhost:5000/api/auth/send-to-hod", {
+    const res = await fetch("https://csms-x9aw.onrender.com/api/auth/send-to-hod", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ subjectId, fileId }),
@@ -484,7 +484,7 @@ const handleSendToHOD = async (subjectId: string, file: File) => {
                         <div className="flex gap-2">
                           {draft.status === "Approved" && draft.draftFile && (
                               <a
-                                href={`http://localhost:5000/api/auth/file/${draft.draftFile}`}
+                                href={`https://csms-x9aw.onrender.com/api/auth/file/${draft.draftFile}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 download
