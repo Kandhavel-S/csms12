@@ -42,6 +42,23 @@ router.get("/by-role", getUsersByRole);
 
 router.post("/add-subject", addSubject);
 router.get("/get-subjects", getSubjects);
+
+// Get subjects filtered by regulation and department
+router.get("/subjects-by-regulation", async (req, res) => {
+  try {
+    const { regulationId, department } = req.query;
+    const filter = { status: "Approved" };
+    
+    if (regulationId) filter.regulationId = regulationId;
+    if (department) filter.department = department;
+    
+    const subjects = await Subject.find(filter).select("_id title code syllabusUrl regulationId department");
+    res.json(subjects);
+  } catch (err) {
+    console.error("Error fetching filtered subjects:", err);
+    res.status(500).json({ error: "Failed to fetch subjects" });
+  }
+});
 router.put("/update-fac-exp", updateSubjectAssignments);
 router.put("/edit-subjects/:id", updateSubject);
 

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { FileText, CheckCircle, MessageSquare, Download, Upload } from "lucide-react"
 import DashboardLayout from "./dashboard-layout"
 import CreateSyllabus from "./syllabus/create-syllabus"
+import toast from "react-hot-toast"
 
 
 interface User {
@@ -93,10 +94,9 @@ export default function SubjectExpertDashboard({ user }: SubjectExpertDashboardP
     const { fileId } = await uploadRes.json();
     console.log("Uploaded file ID:", fileId);
 
-
     if (!fileId) throw new Error("File upload failed");
 
-    // Link file to subject and update status
+    // Link file to subject and update status (regulationId and department are already in the subject record)
     const res = await fetch("https://csms-x9aw.onrender.com/api/auth/send-to-hod", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -108,10 +108,11 @@ export default function SubjectExpertDashboard({ user }: SubjectExpertDashboardP
     if (!res.ok) throw new Error(data.error || "Failed to send");
 
     // Refresh drafts or notify user
-    fetchAssignedSubjects(); // <- Your function to refresh the data
+    fetchAssignedSubjects();
+    toast.success("Successfully sent to HOD");
   } catch (error) {
     console.error("Send to HOD failed:", error);
-    alert("Failed to send to HOD: " + error);
+    toast.error("Failed to send to HOD: " + error);
   }
 };
 

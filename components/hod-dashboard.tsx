@@ -86,6 +86,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null)
   const [newSubjectCode, setNewSubjectCode] = useState("")
   const [newSubjectName, setNewSubjectName] = useState("")
+  const [selectedRegulationForSubject, setSelectedRegulationForSubject] = useState<string>("")
   const [facultyName, setFacultyName] = useState("")
   const [expertName, setExpertName] = useState("")
   const [facultyForm, setFacultyForm] = useState({
@@ -304,7 +305,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   };
 
   const handleAddSubject = async () => {
-  if (newSubjectCode && newSubjectName) {
+  if (newSubjectCode && newSubjectName && selectedRegulationForSubject) {
     try {
       const res = await fetch("https://csms-x9aw.onrender.com/api/auth/add-subject", {
         method: "POST",
@@ -314,7 +315,9 @@ export default function HODDashboard({ user }: HODDashboardProps) {
           title: newSubjectName,
           assignedFaculty: "",
           assignedExpert: "",
-          createdBy: user._id
+          createdBy: user._id,
+          regulationId: selectedRegulationForSubject,
+          department: user.department || ""
         }),
       });
 
@@ -329,10 +332,15 @@ export default function HODDashboard({ user }: HODDashboardProps) {
 
       setNewSubjectCode("");
       setNewSubjectName("");
+      setSelectedRegulationForSubject("");
       setIsAddSubjectOpen(false);
+      toast.success("Subject added successfully");
     } catch (err) {
       console.error("Add subject failed:", err);
+      toast.error("Failed to add subject");
     }
+  } else {
+    toast.error("Please fill all fields including regulation");
   }
 };
 
@@ -867,6 +875,21 @@ const handleReject = async (subjectId: string) => {
                       onChange={(e) => setNewSubjectName(e.target.value)}
                       placeholder="Enter subject Title"
                     />
+                  </div>
+                  <div>
+                    <Label htmlFor="subject-regulation">Regulation</Label>
+                    <Select value={selectedRegulationForSubject} onValueChange={setSelectedRegulationForSubject}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select Regulation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {regulations.map((reg) => (
+                          <SelectItem key={reg.regulationCode} value={reg.versions[0]?._id || reg.regulationCode}>
+                            {reg.regulationCode} - {reg.department}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <Button onClick={handleAddSubject} className="w-full bg-purple-600 hover:bg-purple-700">
                     Add Subject

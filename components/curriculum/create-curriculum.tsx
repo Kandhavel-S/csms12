@@ -519,7 +519,22 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
     const fetchSubjects = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch("https://csms-x9aw.onrender.com/api/auth/subjects", {
+        
+        // Build query params based on selected regulation and department
+        const params = new URLSearchParams();
+        if (selectedRegulation?._id) {
+          params.append("regulationId", selectedRegulation._id);
+        }
+        if (user?.department) {
+          params.append("department", user.department);
+        }
+        
+        const queryString = params.toString();
+        const url = queryString 
+          ? `https://csms-x9aw.onrender.com/api/auth/subjects-by-regulation?${queryString}`
+          : "https://csms-x9aw.onrender.com/api/auth/subjects";
+        
+        const res = await fetch(url, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -531,7 +546,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       }
     };
     fetchSubjects();
-  }, []);
+  }, [selectedRegulation?._id, user?.department]);
 
   useEffect(() => {
     if (!user?.department) return;
