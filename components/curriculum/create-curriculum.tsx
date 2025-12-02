@@ -503,6 +503,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
   resetSignal,
 }) => {
   const [allSubjects, setAllSubjects] = useState<{ _id: string; title: string; code: string; syllabusUrl?: string }[]>([]);
+  const [regulations, setRegulations] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeSection, setActiveSection] = useState<string>('basic');
   const [manualUploadFile, setManualUploadFile] = useState<File | null>(null);
@@ -515,18 +516,49 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
 
   const [formFields, setFormFields] = useState<FormFields>(() => buildDefaultFormFields());
 
+  // Fetch regulations for filtering subjects
+  useEffect(() => {
+    const fetchRegulations = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setRegulations(data);
+        }
+      } catch (err) {
+        console.error("Error fetching regulations:", err);
+      }
+    };
+    fetchRegulations();
+  }, []);
+
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
         const token = localStorage.getItem("token");
         
-        // Build query params based on selected regulation and department
+        // Build query params based on form's regulation and branch fields
         const params = new URLSearchParams();
-        if (selectedRegulation?._id) {
-          params.append("regulationId", selectedRegulation._id);
+        
+        // Use regulation field value to find the regulation ID
+        if (formFields.regulation && formFields.branchName) {
+          // Find the regulation that matches the code and department
+          const matchingReg = regulations.find(
+            reg => reg.regulationCode === formFields.regulation && 
+                   reg.department === formFields.branchName
+          );
+          
+          if (matchingReg && matchingReg.versions[0]?._id) {
+            params.append("regulationId", matchingReg.versions[0]._id);
+          }
         }
-        if (user?.department) {
-          params.append("department", user.department);
+        
+        // Use branch field for department filtering
+        if (formFields.branchName) {
+          params.append("department", formFields.branchName);
         }
         
         const queryString = params.toString();
@@ -540,13 +572,14 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
           },
         });
         const data = await res.json();
+        console.log("Filtered subjects:", data, "for regulation:", formFields.regulation, "department:", formFields.branchName);
         setAllSubjects(data);
       } catch (err) {
         console.error("Error fetching subjects:", err);
       }
     };
     fetchSubjects();
-  }, [selectedRegulation?._id, user?.department]);
+  }, [formFields.regulation, formFields.branchName, regulations]);
 
   useEffect(() => {
     if (!user?.department) return;
