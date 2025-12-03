@@ -314,3 +314,76 @@ exports.markReadNot = async (req, res) => {
     res.status(500).json({ error: "Failed to mark notification as read" });
   }
 };
+
+exports.deleteSubject = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Find the subject first to get details for notifications
+    const subject = await Subject.findById(id);
+    
+    if (!subject) {
+      return res.status(404).json({ error: "Subject not found" });
+    }
+
+    // Get assigned faculty and expert IDs
+    const assignedFacultyId = subject.assignedFaculty;
+    const assignedExpertId = subject.assignedExpert;
+    
+    // Delete syllabus file from GridFS if exists
+    if (subject.syllabusUrl) {
+      try {
+        const { getGridFSBucket } = require("../utils/gridfs");
+        const bucket = getGridFSBucket();
+        const mongoose = require("mongoose");
+        await bucket.delete(new mongoose.Types.ObjectId(subject.syllabusUrl));
+        console.log(`Deleted syllabus file: ${subject.syllabusUrl}`);
+      } catch (fileErr) {
+        console.error("Error deleting syllabus file:", fileErr);
+        // Continue with subject deletion even if file deletion fails
+      }
+    }
+
+    // Send notifications to assigned faculty
+    if (assignedFacultyId) {
+      try {
+        const notification = new Notification({
+          userId: assignedFacultyId,
+          message: `The subject "${subject.title}" (${subject.code}) has been deleted from your allocation by the HOD.`,
+          read: false,
+        });
+        await notification.save();
+      } catch (notifErr) {
+        console.error("Error sending notification to faculty:", notifErr);
+      }
+    }
+
+    // Send notifications to assigned expert
+    if (assignedExpertId) {
+      try {
+        const notification = new Notification({
+          userId: assignedExpertId,
+          message: `The subject "${subject.title}" (${subject.code}) has been deleted from your allocation by the HOD.`,
+          read: false,
+        });
+        await notification.save();
+      } catch (notifErr) {
+        console.error("Error sending notification to expert:", notifErr);
+      }
+    }
+
+    // Delete the subject
+    await Subject.findByIdAndDelete(id);
+
+    res.json({ 
+      message: `Subject "${subject.title}" deleted successfully`,
+      deletedSubject: {
+        code: subject.code,
+        title: subject.title
+      }
+    });
+  } catch (err) {
+    console.error("Error deleting subject:", err);
+    res.status(500).json({ error: "Failed to delete subject" });
+  }
+};

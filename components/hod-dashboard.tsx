@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription  } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, BookOpen, FileText, Download, TrendingUp, Edit, History, RefreshCcw, Loader2 } from "lucide-react"
+import { Plus, BookOpen, FileText, Download, TrendingUp, Edit, History, RefreshCcw, Loader2, Trash2 } from "lucide-react"
 import DashboardLayout from "./dashboard-layout"
 import CreateCurriculum from "./curriculum/create-curriculum"
 import toast from "react-hot-toast"
@@ -83,7 +83,9 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [isEditSubjectOpen, setIsEditSubjectOpen] = useState(false)
   const [isFacultyDialogOpen, setIsFacultyDialogOpen] = useState(false)
   const [isExpertDialogOpen, setIsExpertDialogOpen] = useState(false)
+  const [isDeleteSubjectOpen, setIsDeleteSubjectOpen] = useState(false)
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null)
+  const [subjectToDelete, setSubjectToDelete] = useState<{ id: string; title: string } | null>(null)
   const [newSubjectCode, setNewSubjectCode] = useState("")
   const [newSubjectName, setNewSubjectName] = useState("")
   const [selectedRegulationForSubject, setSelectedRegulationForSubject] = useState<string>("")
@@ -558,6 +560,39 @@ const handleReject = async (subjectId: string) => {
   }
 };
 
+const handleDeleteSubject = async () => {
+  if (!subjectToDelete) return;
+
+  try {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/delete-subject/${subjectToDelete.id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || "Failed to delete subject");
+    }
+
+    const data = await res.json();
+    toast.success(data.message || "Subject deleted successfully");
+    
+    // Refresh the subjects list
+    fetchSubjects();
+    
+    // Close dialog and reset state
+    setIsDeleteSubjectOpen(false);
+    setSubjectToDelete(null);
+  } catch (err: any) {
+    console.error("Error deleting subject:", err);
+    toast.error(err.message || "Failed to delete subject");
+  }
+};
+
 
 
     const getExpertNameById = (id: string | undefined): string | null => {
@@ -840,10 +875,22 @@ const handleReject = async (subjectId: string) => {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button variant="outline" size="sm" onClick={() => handleEditSubject(subject)}>
-                          <Edit className="mr-1 h-3 w-3" />
-                          Edit
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleEditSubject(subject)}>
+                            <Edit className="mr-1 h-3 w-3" />
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            onClick={() => {
+                              setSubjectToDelete({ id: subject._id, title: subject.title });
+                              setIsDeleteSubjectOpen(true);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1017,6 +1064,35 @@ const handleReject = async (subjectId: string) => {
                   </div>
                   <Button onClick={handleSaveExpert} className="w-full bg-purple-600 hover:bg-purple-700">
                     Assign Expert
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Delete Subject Confirmation Dialog */}
+            <Dialog open={isDeleteSubjectOpen} onOpenChange={setIsDeleteSubjectOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Delete Subject</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to delete &quot;{subjectToDelete?.title}&quot;? This action cannot be undone. All associated data including syllabus files will be permanently removed, and notifications will be sent to assigned faculty and experts.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex justify-end gap-3 mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsDeleteSubjectOpen(false);
+                      setSubjectToDelete(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleDeleteSubject}
+                  >
+                    Delete Subject
                   </Button>
                 </div>
               </DialogContent>

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { login, assignFaculty, assignHOD, getUsersByRole, addSubject, getSubjects, updateSubjectAssignments, updateSubject, getNotifications, markReadNot} = require('../controllers/auth');
+const { login, assignFaculty, assignHOD, getUsersByRole, addSubject, getSubjects, updateSubjectAssignments, updateSubject, getNotifications, markReadNot, deleteSubject} = require('../controllers/auth');
 const { protect, authorize } = require('../middleware/auth');
 const Notification = require('../models/notification')
 const User = require('../models/users');
@@ -61,6 +61,7 @@ router.get("/subjects-by-regulation", async (req, res) => {
 });
 router.put("/update-fac-exp", updateSubjectAssignments);
 router.put("/edit-subjects/:id", updateSubject);
+router.delete("/delete-subject/:id", protect, deleteSubject);
 
 router.get("/notifications/:userId", getNotifications);
 router.put("/notifications/:id/mark-read", markReadNot);
