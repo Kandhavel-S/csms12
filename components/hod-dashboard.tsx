@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription  } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Plus, BookOpen, FileText, Download, TrendingUp, Edit, History, RefreshCcw, Loader2, Trash2 } from "lucide-react"
@@ -113,6 +114,8 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [selectedRegulationDetail, setSelectedRegulationDetail] = useState<RegulationDetail | null>(null);
   const [formResetSignal, setFormResetSignal] = useState(0);
   const [loadingVersionId, setLoadingVersionId] = useState<string | null>(null);
+  const [isDeleteRegulationOpen, setIsDeleteRegulationOpen] = useState(false);
+  const [regulationToDelete, setRegulationToDelete] = useState<RegulationSummary | null>(null);
 
 
 
@@ -590,6 +593,42 @@ const handleDeleteSubject = async () => {
   } catch (err: any) {
     console.error("Error deleting subject:", err);
     toast.error(err.message || "Failed to delete subject");
+  }
+};
+
+const handleDeleteRegulation = async () => {
+  if (!regulationToDelete) return;
+
+  try {
+    const token = localStorage.getItem("token");
+    const res = await fetch(
+      `https://csms-x9aw.onrender.com/api/auth/regulations/${regulationToDelete.regulationCode}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || "Failed to delete regulation");
+    }
+
+    const data = await res.json();
+    toast.success(data.message || "Regulation deleted successfully");
+    
+    // Refresh the regulations list
+    fetchRegulations();
+    
+    // Close dialog and reset state
+    setIsDeleteRegulationOpen(false);
+    setRegulationToDelete(null);
+  } catch (err: any) {
+    console.error("Error deleting regulation:", err);
+    toast.error(err.message || "Failed to delete regulation");
   }
 };
 
@@ -1283,6 +1322,17 @@ const handleDeleteSubject = async () => {
                         <Button variant="secondary" size="sm" onClick={() => handleStartNewDraft(reg)}>
                           Start New Draft
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setRegulationToDelete(reg);
+                            setIsDeleteRegulationOpen(true);
+                          }}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </CardHeader>
                     <CardContent>
@@ -1344,6 +1394,29 @@ const handleDeleteSubject = async () => {
                 ))}
               </div>
             )}
+
+            {/* Delete Regulation Confirmation Dialog */}
+            <AlertDialog open={isDeleteRegulationOpen} onOpenChange={setIsDeleteRegulationOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Regulation</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete regulation{" "}
+                    <span className="font-semibold">{regulationToDelete?.regulationCode}</span>?
+                    This will permanently delete all versions and associated curriculum files. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteRegulation}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )
 

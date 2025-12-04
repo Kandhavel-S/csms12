@@ -576,19 +576,44 @@ router.post("/create-regulation", async (req, res) => {
   }
 });
 
-router.delete("/regulations/:code", async (req, res) => {
+router.delete("/regulations/:code", protect, authorize("hod"), async (req, res) => {
   const { code } = req.params;
+  const hodDept = req.user.department;
 
   if (!code) {
     return res.status(400).json({ error: "Regulation code is required" });
   }
 
   try {
-    const result = await Regulation.deleteMany({ regulationCode: code });
+    // Find all regulation versions for this code and department
+    const regulationsToDelete = await Regulation.find({
+      regulationCode: code,
+      department: hodDept,
+    });
 
-    if (result.deletedCount === 0) {
+    if (regulationsToDelete.length === 0) {
       return res.status(404).json({ error: "Regulation not found" });
     }
+
+    // Delete associated curriculum files from GridFS
+    const bucket = getGridFSBucket();
+    for (const reg of regulationsToDelete) {
+      if (reg.curriculumUrl) {
+        try {
+          const fileId = new mongoose.Types.ObjectId(reg.curriculumUrl);
+          await bucket.delete(fileId);
+        } catch (err) {
+          console.error(`Failed to delete curriculum file ${reg.curriculumUrl}:`, err);
+          // Continue with deletion even if file deletion fails
+        }
+      }
+    }
+
+    // Delete all regulation versions for this code and department
+    const result = await Regulation.deleteMany({
+      regulationCode: code,
+      department: hodDept,
+    });
 
     res.json({ message: "Regulation removed", deletedCount: result.deletedCount });
   } catch (err) {
