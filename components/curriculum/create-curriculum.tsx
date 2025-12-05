@@ -1386,16 +1386,6 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
           </div>
           <div className="p-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Number of Courses</label>
-              <input
-                type="number"
-                min="1"
-                value={courseCounts[category]}
-                onChange={(e) => handleCourseCountChange(category, parseInt(e.target.value) || 1)}
-                className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-              />
-            </div>
-            <div className="space-y-2">
               <div className="flex items-center space-x-2 font-medium text-gray-700 dark:text-gray-500 text-sm">
                 <span className="w-12 text-center">S.No.</span>
                 <span className="flex-1">Course Title</span>
@@ -1421,6 +1411,12 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
                   headerTitle={category.toUpperCase()}
                 />
               ))}
+              <Button
+                onClick={() => handleCourseCountChange(category, courses.length + 1)}
+                className="w-full bg-purple-500 hover:bg-purple-600 text-white mt-2"
+              >
+                + Add Course
+              </Button>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Credits</label>
@@ -1447,16 +1443,6 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
             <h3 className="text-lg font-semibold">{semesterLabel}</h3>
           </div>
           <div className="p-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Number of Courses</label>
-              <input
-                type="number"
-                min="1"
-                value={courseCounts[semester]}
-                onChange={(e) => handleCourseCountChange(semester, parseInt(e.target.value) || 1)}
-                className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-              />
-            </div>
             <div className="space-y-2">
               <div className="flex items-center space-x-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
                 <span className="w-12 text-center">S.No.</span>
@@ -1485,6 +1471,12 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
                   headerTitle={`Semester ${toRoman(Number(semester.replace('semester', '')) || 1)}`}
                 />
               ))}
+              <Button
+                onClick={() => handleCourseCountChange(semester, courses.length + 1)}
+                className="w-full bg-purple-500 hover:bg-purple-600 text-white"
+              >
+                + Add Course
+              </Button>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Credits</label>
@@ -1610,16 +1602,6 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
             </div>
             <div className="p-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Number of Courses</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={courseCounts[key]}
-                  onChange={(e) => handleCourseCountChange(key, parseInt(e.target.value) || 1)}
-                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-                />
-              </div>
-              <div className="space-y-2">
                 <div className="flex items-center space-x-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
                   <span className="w-12 text-center">S.No.</span>
                   <span className="flex-1">Course Title</span>
@@ -1647,6 +1629,12 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
                     headerTitle={table.name}
                   />
                 ))}
+                <Button
+                  onClick={() => handleCourseCountChange(key, table.courses.length + 1)}
+                  className="w-full bg-purple-500 hover:bg-purple-600 text-white mt-2"
+                >
+                  + Add Course
+                </Button>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Credits</label>
@@ -1677,16 +1665,6 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
             </div>
             <div className="p-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Number of Courses</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={courseCounts[key]}
-                  onChange={(e) => handleCourseCountChange(key, parseInt(e.target.value) || 1)}
-                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-                />
-              </div>
-              <div className="space-y-2">
                 <div className="flex items-center space-x-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
                   <span className="w-12 text-center">S.No.</span>
                   <span className="flex-1">Course Title</span>
@@ -1714,6 +1692,12 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
                     headerTitle={table.name}
                   />
                 ))}
+                <Button
+                  onClick={() => handleCourseCountChange(key, table.courses.length + 1)}
+                  className="w-full bg-purple-500 hover:bg-purple-600 text-white mt-2"
+                >
+                  + Add Course
+                </Button>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Credits</label>
