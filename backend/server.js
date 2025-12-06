@@ -20,6 +20,9 @@ app.use(express.json());
 app.use('/api/auth', userRoutes);
 app.use('/extract-syllabus', syllabusRoute);
 
+app.head("/ping", (req, res) => {
+  res.status(200).end();
+});
 
 app.get('/',(req,res)=>{
   res.send('Backend server is running');

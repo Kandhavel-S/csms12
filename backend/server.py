@@ -9,7 +9,7 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-@app.route('/ping', methods=['GET'])
+@app.route('/ping', methods=['GET', 'HEAD'])
 def ping():
     return jsonify({"status": "ok"}), 200
 

@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import { FileText, CheckCircle, MessageSquare, Download, Upload } from "lucide-react"
 import DashboardLayout from "./dashboard-layout"
 import CreateSyllabus from "./syllabus/create-syllabus"
@@ -28,6 +30,8 @@ interface SubjectItem {
   lastUpdated?: string
   status: string
   syllabusFile?: string
+  regulationId?: string | { _id: string; regulationCode?: string } | any
+  semester?: number
 }
 
 interface SubjectExpertDashboardProps {
@@ -38,6 +42,8 @@ export default function SubjectExpertDashboard({ user }: SubjectExpertDashboardP
   const [activeTab, setActiveTab] = useState("review")
   const [feedback, setFeedback] = useState("")
   const [selectedSyllabusId, setSelectedSyllabusId] = useState<string | null>(null)
+  const [regulationFilter, setRegulationFilter] = useState<string>("all")
+  const [semesterFilter, setSemesterFilter] = useState<string>("all")
   const [reviews, setReviews] = useState<SubjectItem[]>([])
 
   const fetchAssignedSubjects = async () => {
@@ -239,10 +245,68 @@ const renderContent = () => {
           <CardDescription>Review and respond to submitted syllabus files</CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Filters */}
+          <div className="mb-6 flex gap-4 items-end">
+            <div className="flex-1">
+              <Label htmlFor="regulation-filter">Filter by Regulation</Label>
+              <Select
+                value={regulationFilter}
+                onValueChange={setRegulationFilter}
+              >
+                <SelectTrigger id="regulation-filter">
+                  <SelectValue placeholder="All Regulations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Regulations</SelectItem>
+                  {Array.from(new Set(reviews.map(r => {
+                    const regId = typeof r.regulationId === "string" 
+                      ? r.regulationId 
+                      : r.regulationId?._id || r.regulationId?.toString();
+                    return regId;
+                  }).filter(Boolean))).map((regId) => (
+                    <SelectItem key={regId} value={regId as string}>{regId}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1">
+              <Label htmlFor="semester-filter">Filter by Semester</Label>
+              <Select
+                value={semesterFilter}
+                onValueChange={setSemesterFilter}
+              >
+                <SelectTrigger id="semester-filter">
+                  <SelectValue placeholder="All Semesters" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Semesters</SelectItem>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                    <SelectItem key={sem} value={sem.toString()}>Semester {sem}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(regulationFilter !== "all" || semesterFilter !== "all") && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setRegulationFilter("all");
+                  setSemesterFilter("all");
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
+          </div>
+
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Subject</TableHead>
+                <TableHead>Regulation</TableHead>
+                <TableHead>Semester</TableHead>
                 <TableHead>Faculty</TableHead>
                 <TableHead>Last Updated</TableHead>
                 <TableHead>Status</TableHead>
@@ -250,9 +314,34 @@ const renderContent = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {reviews.map((review) => (
+              {reviews
+                .filter((review) => {
+                  if (regulationFilter && regulationFilter !== "all") {
+                    const reviewRegId = typeof review.regulationId === "string" 
+                      ? review.regulationId 
+                      : review.regulationId?._id || review.regulationId?.toString();
+                    if (reviewRegId !== regulationFilter) return false;
+                  }
+                  if (semesterFilter && semesterFilter !== "all") {
+                    if (review.semester?.toString() !== semesterFilter) return false;
+                  }
+                  return true;
+                })
+                .map((review) => (
                 <TableRow key={review._id}>
                   <TableCell onClick={() => setActiveTab("create-draft")}>{review.title}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">
+                      {typeof review.regulationId === "string" 
+                        ? review.regulationId 
+                        : review.regulationId?.regulationCode || "N/A"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">
+                      Sem {review.semester || "N/A"}
+                    </Badge>
+                  </TableCell>
                   <TableCell>{review.facultyName}</TableCell>
                   <TableCell>{review.lastUpdated ? new Date(review.lastUpdated).toLocaleString() : "—"}</TableCell>
                   <TableCell>

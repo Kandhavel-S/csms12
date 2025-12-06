@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -36,6 +37,8 @@ interface SyllabusDraft {
   feedback?: string
   expertName?: string
   draftFile?: File | null
+  regulationId?: string | { _id: string; regulationCode?: string } | any
+  semester?: number
 }
 
 interface Unit {
@@ -78,6 +81,8 @@ export default function FacultyDashboard({ user }: FacultyDashboardProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [title, setTitle] = useState("")
   const [subject, setSubject] = useState("")
+  const [regulationFilter, setRegulationFilter] = useState<string>("all")
+  const [semesterFilter, setSemesterFilter] = useState<string>("all")
   const [syllabusDrafts, setSyllabusDrafts] = useState<SyllabusDraft[]>([]);
   const router = useRouter();
 
@@ -451,10 +456,68 @@ const handleSendToHOD = async (subjectId: string, file: File) => {
               </div>
             </CardHeader>
             <CardContent>
+              {/* Filters */}
+              <div className="mb-6 flex gap-4 items-end">
+                <div className="flex-1">
+                  <Label htmlFor="regulation-filter">Filter by Regulation</Label>
+                  <Select
+                    value={regulationFilter}
+                    onValueChange={setRegulationFilter}
+                  >
+                    <SelectTrigger id="regulation-filter">
+                      <SelectValue placeholder="All Regulations" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Regulations</SelectItem>
+                      {Array.from(new Set(syllabusDrafts.map(d => {
+                        const regId = typeof d.regulationId === "string" 
+                          ? d.regulationId 
+                          : d.regulationId?._id || d.regulationId?.toString();
+                        return regId;
+                      }).filter(Boolean))).map((regId) => (
+                        <SelectItem key={regId} value={regId as string}>{regId}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex-1">
+                  <Label htmlFor="semester-filter">Filter by Semester</Label>
+                  <Select
+                    value={semesterFilter}
+                    onValueChange={setSemesterFilter}
+                  >
+                    <SelectTrigger id="semester-filter">
+                      <SelectValue placeholder="All Semesters" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Semesters</SelectItem>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                        <SelectItem key={sem} value={sem.toString()}>Semester {sem}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(regulationFilter !== "all" || semesterFilter !== "all") && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setRegulationFilter("all");
+                      setSemesterFilter("all");
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Subject</TableHead>
+                    <TableHead>Regulation</TableHead>
+                    <TableHead>Semester</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Last Updated</TableHead>
                     <TableHead>Expert</TableHead>
@@ -463,12 +526,33 @@ const handleSendToHOD = async (subjectId: string, file: File) => {
                 </TableHeader>
                 <TableBody>
                   {syllabusDrafts
-                    // .filter((draft) =>
-                    //   syllabusDrafts.some((s) => s.title === draft.subject)
-                    // )
+                    .filter((draft) => {
+                      if (regulationFilter && regulationFilter !== "all") {
+                        const draftRegId = typeof draft.regulationId === "string" 
+                          ? draft.regulationId 
+                          : draft.regulationId?._id || draft.regulationId?.toString();
+                        if (draftRegId !== regulationFilter) return false;
+                      }
+                      if (semesterFilter && semesterFilter !== "all") {
+                        if (draft.semester?.toString() !== semesterFilter) return false;
+                      }
+                      return true;
+                    })
                     .map((draft) => (
                     <TableRow key={draft.id} className="hover:bg-muted">
                       <TableCell className="font-medium">{draft.subject}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {typeof draft.regulationId === "string" 
+                            ? draft.regulationId 
+                            : draft.regulationId?.regulationCode || "N/A"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          Sem {draft.semester || "N/A"}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         <Badge className={getStatusColor(draft.status)}>{draft.status !== "Approved"? "Not Approved yet" : draft.status}</Badge>
                       </TableCell>
