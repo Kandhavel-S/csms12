@@ -63,6 +63,29 @@ router.put("/update-fac-exp", updateSubjectAssignments);
 router.put("/edit-subjects/:id", updateSubject);
 router.delete("/delete-subject/:id", protect, deleteSubject);
 
+// Update subject order after drag and drop
+router.put("/update-subject-order", async (req, res) => {
+  try {
+    const { subjectIds } = req.body; // Array of { id, displayOrder }
+    
+    if (!subjectIds || !Array.isArray(subjectIds)) {
+      return res.status(400).json({ error: "Invalid request body" });
+    }
+
+    // Update all subjects in parallel
+    await Promise.all(
+      subjectIds.map(({ id, displayOrder }) => 
+        Subject.findByIdAndUpdate(id, { displayOrder })
+      )
+    );
+
+    res.json({ message: "Subject order updated successfully" });
+  } catch (err) {
+    console.error("Error updating subject order:", err);
+    res.status(500).json({ error: "Failed to update subject order" });
+  }
+});
+
 router.get("/notifications/:userId", getNotifications);
 router.put("/notifications/:id/mark-read", markReadNot);
 
@@ -622,6 +645,62 @@ router.delete("/regulations/:code", protect, authorize("hod"), async (req, res) 
   }
 });
 
+router.put("/regulations/:code/rename", protect, authorize("hod"), async (req, res) => {
+  const { code } = req.params;
+  const { newRegulationCode } = req.body;
+  const hodDept = req.user.department;
+
+  if (!code || !newRegulationCode) {
+    return res.status(400).json({ error: "Both old and new regulation codes are required" });
+  }
+
+  if (!newRegulationCode.trim()) {
+    return res.status(400).json({ error: "New regulation code cannot be empty" });
+  }
+
+  try {
+    // Check if the new regulation code already exists for this department
+    const existingRegulation = await Regulation.findOne({
+      regulationCode: newRegulationCode,
+      department: hodDept,
+    });
+
+    if (existingRegulation) {
+      return res.status(400).json({ error: "A regulation with this name already exists in your department" });
+    }
+
+    // Find all regulation versions for the old code and department
+    const regulationsToUpdate = await Regulation.find({
+      regulationCode: code,
+      department: hodDept,
+    });
+
+    if (regulationsToUpdate.length === 0) {
+      return res.status(404).json({ error: "Regulation not found" });
+    }
+
+    // Update all versions with the new regulation code
+    const result = await Regulation.updateMany(
+      {
+        regulationCode: code,
+        department: hodDept,
+      },
+      {
+        $set: { regulationCode: newRegulationCode }
+      }
+    );
+
+    res.json({ 
+      message: "Regulation renamed successfully", 
+      updatedCount: result.modifiedCount,
+      newRegulationCode 
+    });
+  } catch (err) {
+    console.error("Failed to rename regulation:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // routes/auth.js or routes/department.js
 router.put("/departments/:id", async (req, res) => {
   const { name, hod } = req.body;
@@ -654,6 +733,72 @@ router.post(
   protect,
   authorize("hod"),
   saveRegulationDraft
+);
+
+router.post(
+  "/hod/regulations/save-new-version",
+  protect,
+  authorize("hod"),
+  async (req, res) => {
+    try {
+      const { regulationCode, department, formData, changeSummary } = req.body;
+      const hodId = req.user?.id;
+
+      if (!regulationCode) {
+        return res.status(400).json({ error: "regulationCode is required" });
+      }
+
+      const targetDepartment = department || req.user?.department;
+      if (!targetDepartment) {
+        return res.status(400).json({ error: "department is required" });
+      }
+
+      const payload = typeof formData === "object" ? formData : JSON.parse(formData || "{}");
+
+      // Find the latest version
+      const latest = await Regulation.findOne({ regulationCode, department: targetDepartment })
+        .sort({ version: -1 })
+        .exec();
+
+      const nextVersion = latest ? (latest.version || 0) + 1 : 1;
+      const now = new Date();
+
+      // Create new version
+      const newVersion = new Regulation({
+        regulationCode,
+        department: targetDepartment,
+        hod: hodId || latest?.hod || null,
+        curriculumUrl: latest?.curriculumUrl || null,
+        status: "Draft",
+        isDraft: true,
+        version: nextVersion,
+        formData: payload,
+        changeSummary: changeSummary || "",
+        submittedBy: null,
+        submittedAt: null,
+        lastUpdated: now,
+        savedBy: hodId || null,
+        savedAt: now,
+        isLatest: true,
+      });
+
+      await newVersion.save();
+
+      // Update previous version to not be latest
+      if (latest) {
+        latest.isLatest = false;
+        await latest.save();
+      }
+
+      return res.status(201).json({
+        message: `New version ${newVersion.version} created`,
+        regulation: newVersion,
+      });
+    } catch (err) {
+      console.error("Failed to create new version", err);
+      return res.status(500).json({ error: "Unable to create new version" });
+    }
+  }
 );
 
 router.get(

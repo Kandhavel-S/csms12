@@ -2,7 +2,7 @@
 const mongoose = require("mongoose");
 
 const subjectSchema = new mongoose.Schema({
-  code: { type: String, required: true, unique: true },
+  code: { type: String, required: true },
   title: { type: String, required: true },
   assignedFaculty: { type: String, ref: "User", default: "" }, 
   assignedExpert: { type: String, ref: "User", default: "" }, 
@@ -13,8 +13,21 @@ const subjectSchema = new mongoose.Schema({
   status: { type: String, default: "Draft" },
   feedback: { type: String, default: "" },
   lastUpdated: { type: Date },
-
+  semester: { type: Number, min: 1, max: 8 },
+  displayOrder: { type: Number, default: 0 }
 }, { timestamps: true });
 
-module.exports = mongoose.model("Subject", subjectSchema);
+// Drop the old unique index on 'code' field if it exists
+subjectSchema.index({ code: 1 }, { unique: false });
+
+// Ensure we drop the old unique index when the model is initialized
+const Subject = mongoose.model("Subject", subjectSchema);
+
+// Drop the unique index on startup (only runs once when server starts)
+Subject.collection.dropIndex("code_1").catch(() => {
+  // Ignore error if index doesn't exist
+  console.log("Note: code_1 index already removed or doesn't exist");
+});
+
+module.exports = Subject;
  

@@ -124,16 +124,32 @@ exports.getUsersByRole = async (req, res) => {
 
 exports.addSubject = async (req,res) => {
   try {
-    const { code, title, createdBy, regulationId, department } = req.body;
+    const { code, title, createdBy, regulationId, department, semester, displayOrder } = req.body;
 
     if (!code || !title) return res.status(400).json({ error: "Missing fields" });
+
+    // Check if course code already exists with a different title in the SAME regulation
+    if (regulationId) {
+      const existingSubject = await Subject.findOne({
+        code: code.trim(),
+        regulationId: regulationId
+      });
+
+      if (existingSubject && existingSubject.title !== title.trim()) {
+        return res.status(400).json({
+          error: `Course code "${code}" already exists in this regulation with title "${existingSubject.title}". Please use the same title.`
+        });
+      }
+    }
 
     const newSubject = new Subject({ 
       code, 
       title, 
       createdBy,
       regulationId: regulationId || null,
-      department: department || ""
+      department: department || "",
+      semester: semester || null,
+      displayOrder: displayOrder || 0
     });
     await newSubject.save();
 
@@ -145,9 +161,16 @@ exports.addSubject = async (req,res) => {
 
 exports.getSubjects = async (req, res) => {
   try {
-    const { createdBy } = req.query;
-    const filter = createdBy ? { createdBy } : {};
-    const subjects = await Subject.find(filter);
+    const { createdBy, department, regulationId } = req.query;
+    
+    const filter = {};
+    if (department) filter.department = department;
+    if (createdBy) filter.createdBy = createdBy;
+    if (regulationId) filter.regulationId = regulationId;
+    
+    const subjects = await Subject.find(filter)
+      .populate('regulationId', 'regulationCode department')
+      .sort({ createdAt: -1 });
 
     res.json(subjects);
   } catch (err) {

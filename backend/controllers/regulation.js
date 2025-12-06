@@ -35,12 +35,29 @@ exports.saveRegulationDraft = async (req, res) => {
 
     const payload = parseFormData(formData);
 
-    const latest = await Regulation.findOne({ regulationCode, department: targetDepartment })
+    const latest = await Regulation.findOne({ regulationCode, department: targetDepartment, isLatest: true })
       .sort({ version: -1 })
       .exec();
 
-    const nextVersion = latest ? (latest.version || 0) + 1 : 1;
     const now = new Date();
+
+    // If there's an existing draft, update it instead of creating new version
+    if (latest && latest.isDraft) {
+      latest.formData = payload;
+      latest.changeSummary = changeSummary || "";
+      latest.lastUpdated = now;
+      latest.savedBy = hodId || latest.savedBy;
+      latest.savedAt = now;
+      await latest.save();
+
+      return res.status(200).json({
+        message: `Draft version ${latest.version} updated`,
+        regulation: latest,
+      });
+    }
+
+    // Only create new version if no draft exists
+    const nextVersion = latest ? (latest.version || 0) + 1 : 1;
 
     const draft = new Regulation({
       regulationCode,
@@ -64,9 +81,6 @@ exports.saveRegulationDraft = async (req, res) => {
 
     if (latest) {
       latest.isLatest = false;
-      if (latest.isDraft) {
-        latest.isDraft = false;
-      }
       await latest.save();
     }
 

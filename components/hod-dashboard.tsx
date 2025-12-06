@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, BookOpen, FileText, Download, TrendingUp, Edit, History, RefreshCcw, Loader2, Trash2 } from "lucide-react"
+import { Plus, BookOpen, FileText, Download, TrendingUp, Edit, History, RefreshCcw, Loader2, Trash2, Pencil } from "lucide-react"
 import DashboardLayout from "./dashboard-layout"
 import CreateCurriculum from "./curriculum/create-curriculum"
 import toast from "react-hot-toast"
@@ -32,6 +32,9 @@ interface Subject {
   syllabusUrl: string;
   status: string;
   lastUpdated: string;
+  semester?: number;
+  displayOrder?: number;
+  regulationId?: string | { _id: string; regulationCode?: string; department?: string } | any;
 }
 
 interface RegulationVersionSummary {
@@ -106,8 +109,13 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [facultyList, setFacultyList] = useState<{ _id: string; name: string; email: string }[]>([])
   const [expertList, setExpertList] = useState<{ _id: string; name: string; email: string }[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [selectedRegulationId, setSelectedRegulationId] = useState<string | null>(null);
+  const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
+  const [draggedSubjectId, setDraggedSubjectId] = useState<string | null>(null);
   const [selectedFaculty, setSelectedFaculty] = useState<string | null>(null);
   const [selectedExpert, setSelectedExpert] = useState<string | null>(null);
+  const [trackerRegulationFilter, setTrackerRegulationFilter] = useState<string>("all");
+  const [trackerSemesterFilter, setTrackerSemesterFilter] = useState<string>("all");
   const [regulations, setRegulations] = useState<RegulationSummary[]>([]);
   const [regulationsLoading, setRegulationsLoading] = useState(false);
   const [regulationsError, setRegulationsError] = useState<string | null>(null);
@@ -116,14 +124,21 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [loadingVersionId, setLoadingVersionId] = useState<string | null>(null);
   const [isDeleteRegulationOpen, setIsDeleteRegulationOpen] = useState(false);
   const [regulationToDelete, setRegulationToDelete] = useState<RegulationSummary | null>(null);
+  const [isRegulationNameDialogOpen, setIsRegulationNameDialogOpen] = useState(false);
+  const [newRegulationName, setNewRegulationName] = useState("");
+  const [isCreatingRegulation, setIsCreatingRegulation] = useState(false);
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [regulationToRename, setRegulationToRename] = useState<RegulationSummary | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [isRenamingRegulation, setIsRenamingRegulation] = useState(false);
 
 
 
   useEffect(() => {
     const fetchDropdownUsers = async () => {
       const [facultyRes, expertRes] = await Promise.all([
-        fetch("https://csms-x9aw.onrender.com/api/auth/by-role?role=faculty"),
-        fetch("https://csms-x9aw.onrender.com/api/auth/by-role?role=subject-expert"),
+        fetch("http://localhost:5000/api/auth/by-role?role=faculty"),
+        fetch("http://localhost:5000/api/auth/by-role?role=subject-expert"),
       ]);
 
       const facultyNames = await facultyRes.json();
@@ -142,10 +157,11 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   
   const fetchSubjects = async () => {
     try {
-      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/get-subjects?createdBy=${user._id}`);
+      const res = await fetch(`http://localhost:5000/api/auth/get-subjects?department=${user.department}`);
       const data = await res.json();
       setSubjects(data);
       console.log("📦 Subjects fetched:", data);
+      console.log("📦 Sample subject regulationId:", data[0]?.regulationId);
     } catch (error) {
       console.error("❌ Error fetching subjects:", error);
     }
@@ -160,7 +176,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         throw new Error("Authentication required. Please log in again.");
       }
 
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations", {
+      const res = await fetch("http://localhost:5000/api/auth/hod/regulations", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -238,26 +254,74 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   };
 
   const handleStartFreshRegulation = () => {
-    setSelectedRegulationDetail(null);
-    setFormResetSignal((prev) => prev + 1);
-    setActiveTab("curriculum");
+    setNewRegulationName("");
+    setIsRegulationNameDialogOpen(true);
   };
 
-  const handleStartNewDraft = (reg: RegulationSummary) => {
-    setSelectedRegulationDetail({
-      regulationCode: reg.regulationCode,
-      department: reg.department,
-      version: (reg.latestVersion || 0) + 1,
-      status: "Draft",
-      isDraft: true,
-      changeSummary: "",
-      formData: null,
-      savedAt: undefined,
-      savedBy: user?._id,
-      isLatest: true,
-    });
-    setFormResetSignal((prev) => prev + 1);
-    setActiveTab("curriculum");
+  const handleCreateNewRegulation = async () => {
+    if (!newRegulationName.trim()) {
+      toast.error("Please enter a regulation name");
+      return;
+    }
+
+    setIsCreatingRegulation(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Authentication required. Please log in again.");
+      }
+
+      const departmentName = user.department || "";
+      if (!departmentName.trim()) {
+        throw new Error("Department is required");
+      }
+
+      // Create the regulation with version 1
+      const res = await fetch("http://localhost:5000/api/auth/hod/regulations/save-draft", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          regulationCode: newRegulationName,
+          department: departmentName,
+          formData: {},
+          changeSummary: "Initial version",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create regulation");
+
+      toast.success("Regulation created successfully");
+      
+      // Set the newly created regulation as selected
+      setSelectedRegulationDetail({
+        regulationCode: newRegulationName,
+        department: departmentName,
+        version: 1,
+        status: "Draft",
+        isDraft: true,
+        changeSummary: "Initial version",
+        formData: null,
+        savedAt: new Date().toISOString(),
+        savedBy: user._id,
+        isLatest: true,
+      });
+      
+      setFormResetSignal((prev) => prev + 1);
+      setActiveTab("curriculum");
+      setIsRegulationNameDialogOpen(false);
+      
+      // Refresh regulations list
+      fetchRegulations();
+    } catch (error: any) {
+      console.error("Create regulation error", error);
+      toast.error(error.message || "Unable to create regulation");
+    } finally {
+      setIsCreatingRegulation(false);
+    }
   };
 
   const handleSelectRegulationVersion = async (versionId: string) => {
@@ -269,7 +333,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         throw new Error("Authentication required. Please log in again.");
       }
 
-      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/hod/regulation-version/${versionId}`, {
+      const res = await fetch(`http://localhost:5000/api/auth/hod/regulation-version/${versionId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -309,10 +373,64 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     }
   };
 
-  const handleAddSubject = async () => {
-  if (newSubjectCode && newSubjectName && selectedRegulationForSubject) {
+  const handleCourseCodeChange = async (code: string) => {
+    setNewSubjectCode(code);
+
+    if (!code.trim() || !selectedRegulationForSubject) return;
+
     try {
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/add-subject", {
+      // Check if this course code already exists in the SAME regulation
+      const res = await fetch(
+        `http://localhost:5000/api/auth/get-subjects?regulationId=${selectedRegulationForSubject}`
+      );
+      const existingSubjects = await res.json();
+      
+      const existingSubject = existingSubjects.find(
+        (s: Subject) => s.code === code.trim()
+      );
+
+      if (existingSubject) {
+        // Auto-fill the title with the existing one
+        setNewSubjectName(existingSubject.title);
+        toast.success(`Course code already exists in this regulation. Title auto-filled: "${existingSubject.title}"`);
+      }
+    } catch (error) {
+      console.error("Error checking course code:", error);
+    }
+  };
+
+  const handleAddSubject = async () => {
+  if (newSubjectCode && newSubjectName && (selectedRegulationForSubject || selectedRegulationId) && selectedSemester) {
+    try {
+      const regulationId = selectedRegulationForSubject || selectedRegulationId;
+      
+      // Check if the course code already exists in the SAME regulation
+      const checkRes = await fetch(
+        `http://localhost:5000/api/auth/get-subjects?regulationId=${regulationId}`
+      );
+      const existingSubjects = await checkRes.json();
+      
+      const existingSubjectWithSameCode = existingSubjects.find(
+        (s: Subject) => s.code === newSubjectCode.trim()
+      );
+
+      // If course code exists in this regulation, validate that the title matches
+      if (existingSubjectWithSameCode) {
+        if (existingSubjectWithSameCode.title !== newSubjectName.trim()) {
+          toast.error(
+            `Course code "${newSubjectCode}" already exists in this regulation with title "${existingSubjectWithSameCode.title}". Please use the same title or choose a different course code.`
+          );
+          return;
+        }
+      }
+
+      // Get the next display order for this semester
+      const semesterSubjects = existingSubjects.filter(
+        (s: Subject) => s.semester === selectedSemester
+      );
+      const maxOrder = Math.max(0, ...semesterSubjects.map((s: Subject) => s.displayOrder || 0));
+
+      const res = await fetch("http://localhost:5000/api/auth/add-subject", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -321,8 +439,10 @@ export default function HODDashboard({ user }: HODDashboardProps) {
           assignedFaculty: "",
           assignedExpert: "",
           createdBy: user._id,
-          regulationId: selectedRegulationForSubject,
-          department: user.department || ""
+          regulationId: regulationId,
+          department: user.department || "",
+          semester: selectedSemester,
+          displayOrder: maxOrder + 1
         }),
       });
 
@@ -330,10 +450,9 @@ export default function HODDashboard({ user }: HODDashboardProps) {
       if (!res.ok) throw new Error(data.error || "Error adding subject");
 
       // Refetch subjects after adding
-      const refetch = await fetch(`https://csms-x9aw.onrender.com/api/auth/get-subjects?createdBy=${user._id}`);
+      fetchSubjects();
 
-      const updatedSubjects = await refetch.json();
-      setSubjects(updatedSubjects);
+      // No need to manually update state, fetchSubjects handles it
 
       setNewSubjectCode("");
       setNewSubjectName("");
@@ -365,7 +484,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     if (!selectedSubjectId || !selectedFaculty) return;
 
     try {
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/update-fac-exp", {
+      const res = await fetch("http://localhost:5000/api/auth/update-fac-exp", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -392,7 +511,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     if (!selectedSubjectId || !selectedExpert) return;
 
     try {
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/update-fac-exp", {
+      const res = await fetch("http://localhost:5000/api/auth/update-fac-exp", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -431,7 +550,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   if (!selectedSubjectId) return;
 
   try {
-    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/edit-subjects/${selectedSubjectId}`, {
+    const res = await fetch(`http://localhost:5000/api/auth/edit-subjects/${selectedSubjectId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -477,7 +596,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
           throw new Error("No token found. Please log in again.");
         }
 
-        const res = await fetch("https://csms-x9aw.onrender.com/api/auth/assign-faculty", {
+        const res = await fetch("http://localhost:5000/api/auth/assign-faculty", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -514,7 +633,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
 
     const handleApprove = async (subjectId: string) => {
   try {
-    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/subject/${subjectId}/approve`, {
+    const res = await fetch(`http://localhost:5000/api/auth/subject/${subjectId}/approve`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
     });
@@ -540,7 +659,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
 
 const handleReject = async (subjectId: string) => {
   try {
-    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/subject/${subjectId}/reject`, {
+    const res = await fetch(`http://localhost:5000/api/auth/subject/${subjectId}/reject`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
     });
@@ -568,7 +687,7 @@ const handleDeleteSubject = async () => {
 
   try {
     const token = localStorage.getItem("token");
-    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/delete-subject/${subjectToDelete.id}`, {
+    const res = await fetch(`http://localhost:5000/api/auth/delete-subject/${subjectToDelete.id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -602,7 +721,7 @@ const handleDeleteRegulation = async () => {
   try {
     const token = localStorage.getItem("token");
     const res = await fetch(
-      `https://csms-x9aw.onrender.com/api/auth/regulations/${regulationToDelete.regulationCode}`,
+      `http://localhost:5000/api/auth/regulations/${regulationToDelete.regulationCode}`,
       {
         method: "DELETE",
         headers: {
@@ -629,6 +748,52 @@ const handleDeleteRegulation = async () => {
   } catch (err: any) {
     console.error("Error deleting regulation:", err);
     toast.error(err.message || "Failed to delete regulation");
+  }
+};
+
+const handleRenameRegulation = async () => {
+  if (!regulationToRename || !renameValue.trim()) {
+    toast.error("Please enter a valid regulation name");
+    return;
+  }
+
+  setIsRenamingRegulation(true);
+  try {
+    const token = localStorage.getItem("token");
+    const res = await fetch(
+      `http://localhost:5000/api/auth/regulations/${regulationToRename.regulationCode}/rename`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          newRegulationCode: renameValue,
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || "Failed to rename regulation");
+    }
+
+    const data = await res.json();
+    toast.success(data.message || "Regulation renamed successfully");
+    
+    // Refresh the regulations list
+    fetchRegulations();
+    
+    // Close dialog and reset state
+    setIsRenameDialogOpen(false);
+    setRegulationToRename(null);
+    setRenameValue("");
+  } catch (err: any) {
+    console.error("Error renaming regulation:", err);
+    toast.error(err.message || "Failed to rename regulation");
+  } finally {
+    setIsRenamingRegulation(false);
   }
 };
 
@@ -722,6 +887,82 @@ const handleDeleteRegulation = async () => {
         )
 
       case "subjects":
+        const selectedRegulation = selectedRegulationId 
+          ? regulations.find(r => r.versions[0]?._id === selectedRegulationId)
+          : null;
+        
+        const filteredSubjects = selectedSemester && selectedRegulationId
+          ? subjects
+              .filter(s => {
+                const regIdMatch = s.regulationId === selectedRegulationId || 
+                                  s.regulationId?._id === selectedRegulationId ||
+                                  s.regulationId?.toString() === selectedRegulationId;
+                const semMatch = s.semester === selectedSemester;
+                return regIdMatch && semMatch;
+              })
+              .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          : [];
+
+        console.log("Filtered subjects for display:", filteredSubjects.length);
+
+        const handleDragStart = (subjectId: string) => {
+          setDraggedSubjectId(subjectId);
+        };
+
+        const handleDragOver = (e: React.DragEvent) => {
+          e.preventDefault();
+        };
+
+        const handleDrop = async (targetSubjectId: string) => {
+          if (!draggedSubjectId || draggedSubjectId === targetSubjectId) return;
+
+          const draggedIndex = filteredSubjects.findIndex(s => s._id === draggedSubjectId);
+          const targetIndex = filteredSubjects.findIndex(s => s._id === targetSubjectId);
+
+          if (draggedIndex === -1 || targetIndex === -1) return;
+
+          // Reorder locally
+          const newSubjects = [...filteredSubjects];
+          const [removed] = newSubjects.splice(draggedIndex, 1);
+          newSubjects.splice(targetIndex, 0, removed);
+
+          // Update display order
+          const updatedSubjects = newSubjects.map((s, index) => ({
+            ...s,
+            displayOrder: index
+          }));
+
+          // Update state - remove old subjects from this semester and add updated ones
+          setSubjects(prev => {
+            const filtered = prev.filter(s => {
+              const regIdMatch = s.regulationId === selectedRegulationId || 
+                                s.regulationId?._id === selectedRegulationId ||
+                                s.regulationId?.toString() === selectedRegulationId;
+              const semMatch = s.semester === selectedSemester;
+              // Keep subjects that DON'T match (i.e., remove subjects from current semester)
+              return !(regIdMatch && semMatch);
+            });
+            return [...filtered, ...updatedSubjects];
+          });
+
+          // Save to backend
+          try {
+            await fetch('http://localhost:5000/api/auth/update-subject-order', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                subjectIds: updatedSubjects.map(s => ({ id: s._id, displayOrder: s.displayOrder }))
+              })
+            });
+            toast.success('Order updated successfully');
+          } catch (err) {
+            console.error('Failed to update subject order:', err);
+            toast.error('Failed to save new order');
+          }
+
+          setDraggedSubjectId(null);
+        };
+
         return (
           <Card className="animate-slide-up">
             <CardHeader>
@@ -731,13 +972,15 @@ const handleDeleteRegulation = async () => {
                     <BookOpen className="h-5 w-5" />
                     Subject Allocation
                   </CardTitle>
-                  <CardDescription>Manage subjects and assign faculty members and experts</CardDescription>
+                  <CardDescription>Navigate: Regulations → Semesters → Subjects</CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setIsAddSubjectOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Subject
-                  </Button>
+                  {selectedSemester && (
+                    <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setIsAddSubjectOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Subject
+                    </Button>
+                  )}
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button className="bg-purple-600 hover:bg-purple-700">
@@ -828,7 +1071,7 @@ const handleDeleteRegulation = async () => {
                           onClick={async () => {
                             setCreating(true);
                             try {
-                              const res = await fetch("https://csms-x9aw.onrender.com/api/auth/assign-expert", {
+                              const res = await fetch("http://localhost:5000/api/auth/assign-expert", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
@@ -862,79 +1105,190 @@ const handleDeleteRegulation = async () => {
                       </div>
                     </DialogContent>
                   </Dialog>
-
                 </div>
-
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Subject Code</TableHead>
-                    <TableHead>Subject Title</TableHead>
-                    <TableHead>Assigned Faculty</TableHead>
-                    <TableHead>Assigned Expert</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {subjects.map((subject) => (
-                    <TableRow key={subject._id} className="hover:bg-muted">
-                      <TableCell className="font-medium">{subject.code}</TableCell>
-                      <TableCell>{subject.title}</TableCell>
-                      <TableCell>
-                        {subject.assignedFaculty ? (
-                          <span className="text-sm font-medium text-black-700">
-                            {getFacultyNameById(subject.assignedFaculty)}
-                          </span>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAssignFaculty(subject._id)}
-                          >
-                            Assign Faculty
-                          </Button>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {subject.assignedExpert ? (
-                          <span className="text-sm font-medium text-black-700">
-                            {getExpertNameById(subject.assignedExpert)}
-                          </span>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAssignExpert(subject._id)}
-                          >
-                            Assign Expert
-                          </Button>
-                        )}
-                      </TableCell>
-                      <TableCell>
+              {/* Breadcrumb Navigation */}
+              <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+                <span 
+                  className="cursor-pointer hover:text-purple-600" 
+                  onClick={() => { setSelectedRegulationId(null); setSelectedSemester(null); }}
+                >
+                  Regulations
+                </span>
+                {selectedRegulation && (
+                  <>
+                    <span>/</span>
+                    <span 
+                      className="cursor-pointer hover:text-purple-600"
+                      onClick={() => setSelectedSemester(null)}
+                    >
+                      {selectedRegulation.regulationCode}
+                    </span>
+                  </>
+                )}
+                {selectedSemester && (
+                  <>
+                    <span>/</span>
+                    <span className="text-foreground font-medium">Semester {selectedSemester}</span>
+                  </>
+                )}
+              </div>
+
+              {/* Directory View: Regulations */}
+              {!selectedRegulationId && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {regulations.map((reg) => (
+                    <Card 
+                      key={reg.regulationCode}
+                      className="cursor-pointer hover:border-purple-500 transition-colors"
+                      onClick={() => setSelectedRegulationId(reg.versions[0]?._id || reg.regulationCode)}
+                    >
+                      <CardHeader>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <FileText className="h-5 w-5 text-purple-600" />
+                          {reg.regulationCode}
+                        </CardTitle>
+                        <CardDescription>{reg.department}</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground">
+                          {subjects.filter(s => {
+                            const regId = reg.versions[0]?._id || reg.regulationCode;
+                            return s.regulationId === regId || 
+                                   s.regulationId?._id === regId ||
+                                   s.regulationId?.toString() === regId;
+                          }).length} subjects
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* Directory View: Semesters */}
+              {selectedRegulationId && !selectedSemester && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => {
+                    const semesterSubjects = subjects.filter(
+                      s => {
+                        const regIdMatch = s.regulationId === selectedRegulationId || 
+                                          s.regulationId?._id === selectedRegulationId ||
+                                          s.regulationId?.toString() === selectedRegulationId;
+                        const semMatch = s.semester === sem;
+                        return regIdMatch && semMatch;
+                      }
+                    );
+                    console.log(`Semester ${sem} subjects:`, semesterSubjects.length, "selectedRegId:", selectedRegulationId);
+                    return (
+                      <Card 
+                        key={sem}
+                        className="cursor-pointer hover:border-purple-500 transition-colors"
+                        onClick={() => setSelectedSemester(sem)}
+                      >
+                        <CardHeader>
+                          <CardTitle className="text-lg">Semester {sem}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground">
+                            {semesterSubjects.length} subjects
+                          </p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Subject List View with Drag & Drop */}
+              {selectedSemester && (
+                <div className="space-y-2">
+                  {filteredSubjects.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No subjects in this semester yet.</p>
+                      <p className="text-sm">Click "Add Subject" to create one.</p>
+                    </div>
+                  ) : (
+                    filteredSubjects.map((subject) => (
+                      <div
+                        key={subject._id}
+                        draggable
+                        onDragStart={() => handleDragStart(subject._id)}
+                        onDragOver={handleDragOver}
+                        onDrop={() => handleDrop(subject._id)}
+                        className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-accent cursor-move transition-colors"
+                      >
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className="flex flex-col gap-1">
+                            <span className="w-1 h-10 bg-purple-600 rounded"></span>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-medium">{subject.code}</span>
+                              <Badge className={getStatusColor(subject.status === "Sent to HOD" ? "Received" : subject.status)}>
+                                {subject.status === "Sent to HOD" ? "Received" : subject.status}
+                              </Badge>
+                            </div>
+                            <p className="text-sm font-medium">{subject.title}</p>
+                            <div className="flex gap-4 text-xs text-muted-foreground mt-1">
+                              <span>Faculty: {getFacultyNameById(subject.assignedFaculty) || "Not assigned"}</span>
+                              <span>Expert: {getExpertNameById(subject.assignedExpert) || "Not assigned"}</span>
+                            </div>
+                          </div>
+                        </div>
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleEditSubject(subject)}>
-                            <Edit className="mr-1 h-3 w-3" />
-                            Edit
+                          {!subject.assignedFaculty && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAssignFaculty(subject._id);
+                              }}
+                            >
+                              Assign Faculty
+                            </Button>
+                          )}
+                          {!subject.assignedExpert && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAssignExpert(subject._id);
+                              }}
+                            >
+                              Assign Expert
+                            </Button>
+                          )}
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditSubject(subject);
+                            }}
+                          >
+                            <Edit className="h-3 w-3" />
                           </Button>
                           <Button 
                             variant="destructive" 
                             size="sm" 
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setSubjectToDelete({ id: subject._id, title: subject.title });
                               setIsDeleteSubjectOpen(true);
                             }}
                           >
-                            Delete
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </CardContent>
 
             {/* Add Subject Dialog */}
@@ -949,7 +1303,7 @@ const handleDeleteRegulation = async () => {
                     <Input
                       id="subject-code"
                       value={newSubjectCode}
-                      onChange={(e) => setNewSubjectCode(e.target.value)}
+                      onChange={(e) => handleCourseCodeChange(e.target.value)}
                       placeholder="Enter subject code (e.g., CS101)"
                     />
                   </div>
@@ -964,7 +1318,11 @@ const handleDeleteRegulation = async () => {
                   </div>
                   <div>
                     <Label htmlFor="subject-regulation">Regulation</Label>
-                    <Select value={selectedRegulationForSubject} onValueChange={setSelectedRegulationForSubject}>
+                    <Select 
+                      value={selectedRegulationForSubject || selectedRegulationId || ""} 
+                      onValueChange={setSelectedRegulationForSubject}
+                      disabled={!!selectedRegulationId}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select Regulation" />
                       </SelectTrigger>
@@ -972,6 +1330,25 @@ const handleDeleteRegulation = async () => {
                         {regulations.map((reg) => (
                           <SelectItem key={reg.regulationCode} value={reg.versions[0]?._id || reg.regulationCode}>
                             {reg.regulationCode} - {reg.department}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="subject-semester">Semester</Label>
+                    <Select 
+                      value={selectedSemester?.toString() || ""} 
+                      onValueChange={(val) => {}}
+                      disabled={!!selectedSemester}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={selectedSemester ? `Semester ${selectedSemester}` : "Select Semester"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                          <SelectItem key={sem} value={sem.toString()}>
+                            Semester {sem}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1141,6 +1518,33 @@ const handleDeleteRegulation = async () => {
         )
 
       case "tracker":
+        const filteredTrackerSubjects = subjects.filter((subject) => {
+          // Filter by regulation
+          if (trackerRegulationFilter && trackerRegulationFilter !== "all") {
+            const subjectRegulationId = 
+              typeof subject.regulationId === "string"
+                ? subject.regulationId
+                : subject.regulationId?._id || subject.regulationId?.toString();
+            
+            const matchingRegulation = regulations.find(
+              (reg) => reg.versions[0]?._id === subjectRegulationId
+            );
+            
+            if (!matchingRegulation || matchingRegulation.regulationCode !== trackerRegulationFilter) {
+              return false;
+            }
+          }
+
+          // Filter by semester
+          if (trackerSemesterFilter && trackerSemesterFilter !== "all") {
+            if (subject.semester?.toString() !== trackerSemesterFilter) {
+              return false;
+            }
+          }
+
+          return true;
+        });
+
         return (
           <Card className="animate-slide-up">
             <CardHeader>
@@ -1151,36 +1555,122 @@ const handleDeleteRegulation = async () => {
               <CardDescription>Track the status of syllabi created by you</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Faculty</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Last Updated</TableHead>
-                    <TableHead>Syllabus</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {subjects.map((subject) => (
-                    <TableRow key={subject._id} className="hover:bg-muted">
-                      <TableCell className="font-medium">{subject.title}</TableCell>
-                      <TableCell>{getFacultyNameById(subject.assignedFaculty) || "N/A"}</TableCell>
-                    <TableCell>
-                        <Badge className={getStatusColor(subject.status === "Sent to HOD" ? "Received" : subject.status)}>
-                          {subject.status === "Sent to HOD" ? "Received" : subject.status}
-                        </Badge>
-                      </TableCell>
+              {/* Filters */}
+              <div className="mb-6 flex gap-4 items-end">
+                <div className="flex-1">
+                  <Label htmlFor="tracker-regulation-filter">Filter by Regulation</Label>
+                  <Select
+                    value={trackerRegulationFilter}
+                    onValueChange={setTrackerRegulationFilter}
+                  >
+                    <SelectTrigger id="tracker-regulation-filter">
+                      <SelectValue placeholder="All Regulations" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Regulations</SelectItem>
+                      {regulations.map((reg) => (
+                        <SelectItem key={reg.regulationCode} value={reg.regulationCode}>
+                          {reg.regulationCode} - {reg.department}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                      <TableCell>
-                        {subject.lastUpdated
-                          ? new Date(subject.lastUpdated).toLocaleString()
-                          : "Not Updated"}
-                      </TableCell>
-                     <TableCell className="flex flex-wrap gap-2">
+                <div className="flex-1">
+                  <Label htmlFor="tracker-semester-filter">Filter by Semester</Label>
+                  <Select
+                    value={trackerSemesterFilter}
+                    onValueChange={setTrackerSemesterFilter}
+                  >
+                    <SelectTrigger id="tracker-semester-filter">
+                      <SelectValue placeholder="All Semesters" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Semesters</SelectItem>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                        <SelectItem key={sem} value={sem.toString()}>
+                          Semester {sem}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(trackerRegulationFilter !== "all" || trackerSemesterFilter !== "all") && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setTrackerRegulationFilter("all");
+                      setTrackerSemesterFilter("all");
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Subject</TableHead>
+                      <TableHead>Regulation</TableHead>
+                      <TableHead>Semester</TableHead>
+                      <TableHead>Faculty</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Last Updated</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTrackerSubjects.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                          No subjects found matching the selected filters
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredTrackerSubjects.map((subject) => {
+                        const subjectRegulationId = 
+                          typeof subject.regulationId === "string"
+                            ? subject.regulationId
+                            : subject.regulationId?._id || subject.regulationId?.toString();
+                        
+                        const regulation = regulations.find(
+                          (reg) => reg.versions[0]?._id === subjectRegulationId
+                        );
+
+                        return (
+                          <TableRow key={subject._id} className="hover:bg-muted">
+                            <TableCell className="font-mono text-sm">{subject.code}</TableCell>
+                            <TableCell className="font-medium">{subject.title}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {regulation?.regulationCode || "N/A"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">
+                                Sem {subject.semester || "N/A"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{getFacultyNameById(subject.assignedFaculty) || "N/A"}</TableCell>
+                            <TableCell>
+                              <Badge className={getStatusColor(subject.status === "Sent to HOD" ? "Received" : subject.status)}>
+                                {subject.status === "Sent to HOD" ? "Received" : subject.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {subject.lastUpdated
+                                ? new Date(subject.lastUpdated).toLocaleString()
+                                : "Not Updated"}
+                            </TableCell>
+                            <TableCell className="flex flex-wrap gap-2">
                         {subject.syllabusUrl && (
                           <a
-                            href={`https://csms-x9aw.onrender.com/api/auth/file/${subject.syllabusUrl}`}
+                            href={`http://localhost:5000/api/auth/file/${subject.syllabusUrl}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             download
@@ -1220,14 +1710,14 @@ const handleDeleteRegulation = async () => {
                           </>
                         )}
 
-                      </TableCell>
-
-
-
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         );
@@ -1319,8 +1809,17 @@ const handleDeleteRegulation = async () => {
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge>{`v${reg.latestVersion}`}</Badge>
                         <Badge className={getStatusColor(reg.latestStatus)}>{reg.latestStatus}</Badge>
-                        <Button variant="secondary" size="sm" onClick={() => handleStartNewDraft(reg)}>
-                          Start New Draft
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setRegulationToRename(reg);
+                            setRenameValue(reg.regulationCode);
+                            setIsRenameDialogOpen(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="outline"
@@ -1376,7 +1875,7 @@ const handleDeleteRegulation = async () => {
                               </div>
                               {version.curriculumUrl && (
                                 <a
-                                  href={`https://csms-x9aw.onrender.com/api/auth/file/${version.curriculumUrl}`}
+                                  href={`http://localhost:5000/api/auth/file/${version.curriculumUrl}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >
@@ -1417,6 +1916,118 @@ const handleDeleteRegulation = async () => {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+
+            {/* New Regulation Name Dialog */}
+            <Dialog open={isRegulationNameDialogOpen} onOpenChange={setIsRegulationNameDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Regulation</DialogTitle>
+                  <DialogDescription>
+                    Enter a name for the new regulation (e.g., R2022, R2023)
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="regulation-name">Regulation Name</Label>
+                    <Input
+                      id="regulation-name"
+                      value={newRegulationName}
+                      onChange={(e) => setNewRegulationName(e.target.value)}
+                      placeholder="e.g., R2022"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !isCreatingRegulation) {
+                          handleCreateNewRegulation();
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Department: <span className="font-medium">{user.department || "Not set"}</span>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsRegulationNameDialogOpen(false)}
+                      disabled={isCreatingRegulation}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleCreateNewRegulation}
+                      disabled={isCreatingRegulation}
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      {isCreatingRegulation ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        "Create Regulation"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Rename Regulation Dialog */}
+            <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Rename Regulation</DialogTitle>
+                  <DialogDescription>
+                    Enter a new name for the regulation
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="rename-regulation">New Regulation Name</Label>
+                    <Input
+                      id="rename-regulation"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      placeholder="e.g., R2023"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !isRenamingRegulation) {
+                          handleRenameRegulation();
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Current name: <span className="font-medium">{regulationToRename?.regulationCode}</span>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsRenameDialogOpen(false);
+                        setRegulationToRename(null);
+                        setRenameValue("");
+                      }}
+                      disabled={isRenamingRegulation}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleRenameRegulation}
+                      disabled={isRenamingRegulation}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isRenamingRegulation ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Renaming...
+                        </>
+                      ) : (
+                        "Rename"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         )
 

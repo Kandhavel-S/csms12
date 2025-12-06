@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file
+from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
 from docx import Document
 from docx.shared import Pt
@@ -8,6 +8,10 @@ import os
 
 app = Flask(__name__)
 CORS(app)
+
+@app.route('/ping', methods=['GET'])
+def ping():
+    return jsonify({"status": "ok"}), 200
 
 @app.route('/merge-first-syllabus', methods=['POST'])
 def merge_first_syllabus():

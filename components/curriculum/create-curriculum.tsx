@@ -353,7 +353,7 @@ const CourseInputRow: React.FC<{
     onChange(index, 'courseTitle', selectedSubject.title);
     if (selectedSubject.syllabusUrl) {
       try {
-        const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://csms-x9aw.onrender.com';
+        const baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
         const syllabusUrl = `${baseUrl}/api/auth/file/${selectedSubject.syllabusUrl}`;
         const response = await fetch(syllabusUrl);
         if (!response.ok) throw new Error(`Failed to fetch syllabus file: ${response.statusText}`);
@@ -511,7 +511,8 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
   const [changeSummary, setChangeSummary] = useState('');
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [draftSaveFeedback, setDraftSaveFeedback] = useState<string | null>(null);
-  const [isConfirmSaveOpen, setIsConfirmSaveOpen] = useState(false);
+  const [isNewVersionDialogOpen, setIsNewVersionDialogOpen] = useState(false);
+  const [isCreatingNewVersion, setIsCreatingNewVersion] = useState(false);
   const [courseCounts, setCourseCounts] = useState<CourseCounts>(() => buildDefaultCourseCounts());
 
   const [formFields, setFormFields] = useState<FormFields>(() => buildDefaultFormFields());
@@ -521,7 +522,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
     const fetchRegulations = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations", {
+        const res = await fetch("http://localhost:5000/api/auth/hod/regulations", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -540,15 +541,20 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       try {
         const token = localStorage.getItem("token");
         
-        // Build query params based on form's regulation and branch fields
+        // Build query params based on form's regulation and HOD's department
         const params = new URLSearchParams();
         
+        // Always filter by HOD's department, not the branch field
+        if (user.department) {
+          params.append("department", user.department);
+        }
+        
         // Use regulation field value to find the regulation ID
-        if (formFields.regulation && formFields.branchName) {
+        if (formFields.regulation && user.department) {
           // Find the regulation that matches the code and department
           const matchingReg = regulations.find(
             reg => reg.regulationCode === formFields.regulation && 
-                   reg.department === formFields.branchName
+                   reg.department === user.department
           );
           
           if (matchingReg && matchingReg.versions[0]?._id) {
@@ -556,15 +562,10 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
           }
         }
         
-        // Use branch field for department filtering
-        if (formFields.branchName) {
-          params.append("department", formFields.branchName);
-        }
-        
         const queryString = params.toString();
         const url = queryString 
-          ? `https://csms-x9aw.onrender.com/api/auth/subjects-by-regulation?${queryString}`
-          : "https://csms-x9aw.onrender.com/api/auth/subjects";
+          ? `http://localhost:5000/api/auth/subjects-by-regulation?${queryString}`
+          : "http://localhost:5000/api/auth/subjects";
         
         const res = await fetch(url, {
           headers: {
@@ -572,55 +573,161 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
           },
         });
         const data = await res.json();
-        console.log("Filtered subjects:", data, "for regulation:", formFields.regulation, "department:", formFields.branchName);
+        console.log("Filtered subjects:", data, "for regulation:", formFields.regulation, "department:", user.department);
         setAllSubjects(data);
       } catch (err) {
         console.error("Error fetching subjects:", err);
       }
     };
     fetchSubjects();
-  }, [formFields.regulation, formFields.branchName, regulations]);
+  }, [formFields.regulation, user.department, regulations]);
 
-  useEffect(() => {
-    if (!user?.department) return;
-    setFormFields((prev) => {
-      if (prev.branchName) return prev;
-      return { ...prev, branchName: user.department || '' };
-    });
-  }, [user?.department]);
+  // Branch field should be manually filled, not auto-populated
+  // useEffect removed to prevent auto-filling branch with department
 
   useEffect(() => {
     if (resetSignal === undefined) return;
     const base = buildDefaultFormFields();
-    setFormFields({ ...base, branchName: user.department || base.branchName });
+    setFormFields(base);
     setChangeSummary('');
     setCourseCounts(buildDefaultCourseCounts());
-  }, [resetSignal, user.department]);
+  }, [resetSignal]);
+
+  // Function to re-fetch syllabus files from saved syllabusUrl
+  const refetchSyllabusFile = async (syllabusUrl: string, isFirstRow: boolean = false, headerTitle: string = ''): Promise<File | undefined> => {
+    try {
+      const baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
+      const fileUrl = `${baseUrl}/api/auth/file/${syllabusUrl}`;
+      const response = await fetch(fileUrl);
+      if (!response.ok) return undefined;
+      
+      const blob = await response.blob();
+      const extension = blob.type === 'application/pdf' ? 'pdf' : 'docx';
+      const fileName = `syllabus.${extension}`;
+      
+      // Merge header for first row if needed
+      if (isFirstRow && extension === 'docx' && headerTitle) {
+        try {
+          const mergeRes = await fetch(`https://csms12.onrender.com/merge-first-syllabus`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: headerTitle,
+              syllabusUrl: fileUrl,
+            }),
+          });
+          if (mergeRes.ok) {
+            const mergedBlob = await mergeRes.blob();
+            return new File([mergedBlob], `merged-${fileName}`, { type: mergedBlob.type });
+          }
+        } catch (err) {
+          console.error('Error merging header:', err);
+        }
+      }
+      
+      return new File([blob], fileName, { type: blob.type });
+    } catch (error) {
+      console.error('Error refetching syllabus file:', error);
+      return undefined;
+    }
+  };
 
   useEffect(() => {
-    if (selectedRegulation?.formData) {
-      const cloned = cloneFormFields(selectedRegulation.formData);
-      const merged = {
-        ...cloned,
-        regulation: selectedRegulation.regulationCode || cloned.regulation,
-        branchName:
-          selectedRegulation.department || cloned.branchName || user.department || cloned.branchName,
-      };
-      setFormFields(merged);
-      setCourseCounts(deriveCourseCounts(merged));
-      setChangeSummary(selectedRegulation.changeSummary || '');
-      return;
-    }
+    const loadFormDataWithFiles = async () => {
+      if (selectedRegulation?.formData) {
+        const cloned = cloneFormFields(selectedRegulation.formData);
+        const merged = {
+          ...cloned,
+          regulation: selectedRegulation.regulationCode || cloned.regulation,
+          branchName: cloned.branchName || '',
+        };
 
-    if (selectedRegulation?.regulationCode) {
-      setFormFields((prev) => ({
-        ...prev,
-        regulation: selectedRegulation.regulationCode,
-        branchName: selectedRegulation.department || prev.branchName || user.department || '',
-      }));
-      setChangeSummary(selectedRegulation.changeSummary || '');
-    }
-  }, [selectedRegulation, user.department]);
+        // Re-fetch syllabus files for all courses
+        const categories = ['hsmcCourses', 'bscCourses', 'escCourses', 'pccCourses', 'pecCourses', 'oecCourses', 'eecCourses', 'mcCourses'];
+        for (const category of categories) {
+          const courses = merged[category as keyof FormFields] as Course[];
+          if (Array.isArray(courses)) {
+            for (let i = 0; i < courses.length; i++) {
+              if (courses[i].syllabusUrl) {
+                const file = await refetchSyllabusFile(courses[i].syllabusUrl!);
+                if (file) courses[i].syllabusFile = file;
+              }
+            }
+          }
+        }
+
+        // Re-fetch syllabus files for semesters
+        for (let sem = 1; sem <= 8; sem++) {
+          const semKey = `semester${sem}Courses` as keyof FormFields;
+          const courses = merged[semKey] as SemesterCourse[];
+          if (Array.isArray(courses)) {
+            for (let i = 0; i < courses.length; i++) {
+              if (courses[i].syllabusUrl) {
+                const file = await refetchSyllabusFile(courses[i].syllabusUrl!);
+                if (file) courses[i].syllabusFile = file;
+              }
+            }
+          }
+        }
+
+        // Re-fetch syllabus files for professional electives
+        if (Array.isArray(merged.professionalElectives)) {
+          for (let colIndex = 0; colIndex < merged.professionalElectives.length; colIndex++) {
+            const column = merged.professionalElectives[colIndex];
+            for (let rowIndex = 0; rowIndex < column.cells.length; rowIndex++) {
+              const cell = column.cells[rowIndex];
+              if (cell.syllabusUrl) {
+                const isFirstRow = rowIndex === 0;
+                const headerTitle = isFirstRow ? (column.verticalName ? `${column.verticalNumber} - ${column.verticalName}` : column.verticalNumber) : '';
+                const file = await refetchSyllabusFile(cell.syllabusUrl, isFirstRow, headerTitle);
+                if (file) cell.syllabusFile = file;
+              }
+            }
+          }
+        }
+
+        // Re-fetch syllabus files for open electives
+        if (Array.isArray(merged.openElectiveTables)) {
+          for (const table of merged.openElectiveTables) {
+            for (let i = 0; i < table.courses.length; i++) {
+              if (table.courses[i].syllabusUrl) {
+                const file = await refetchSyllabusFile(table.courses[i].syllabusUrl!);
+                if (file) table.courses[i].syllabusFile = file;
+              }
+            }
+          }
+        }
+
+        // Re-fetch syllabus files for mandatory courses
+        if (Array.isArray(merged.mandatoryCourseTables)) {
+          for (const table of merged.mandatoryCourseTables) {
+            for (let i = 0; i < table.courses.length; i++) {
+              if (table.courses[i].syllabusUrl) {
+                const file = await refetchSyllabusFile(table.courses[i].syllabusUrl!);
+                if (file) table.courses[i].syllabusFile = file;
+              }
+            }
+          }
+        }
+
+        setFormFields(merged);
+        setCourseCounts(deriveCourseCounts(merged));
+        setChangeSummary(selectedRegulation.changeSummary || '');
+        return;
+      }
+
+      if (selectedRegulation?.regulationCode) {
+        setFormFields((prev) => ({
+          ...prev,
+          regulation: selectedRegulation.regulationCode,
+          branchName: prev.branchName || '',
+        }));
+        setChangeSummary(selectedRegulation.changeSummary || '');
+      }
+    };
+
+    loadFormDataWithFiles();
+  }, [selectedRegulation]);
 
   const handleCourseCountChange = (key: keyof typeof courseCounts, value: number) => {
     if (value < 1) return;
@@ -720,7 +827,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       const selectedSubject = allSubjects.find((subj) => subj._id === value);
       if (selectedSubject) {
         try {
-          const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://csms-x9aw.onrender.com';
+          const baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
           const syllabusUrl = `${baseUrl}/api/auth/file/${selectedSubject.syllabusUrl}`;
           const response = await fetch(syllabusUrl);
           if (!response.ok) throw new Error(`Failed to fetch syllabus file: ${response.statusText}`);
@@ -1259,7 +1366,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       return;
     }
 
-    const departmentName = formFields.branchName || user.department || '';
+    const departmentName = user.department || '';
     if (!departmentName.trim()) {
       toast.error("Department is required");
       return;
@@ -1274,7 +1381,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
     try {
       setIsSavingDraft(true);
       setDraftSaveFeedback(null);
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations/save-draft", {
+      const res = await fetch("http://localhost:5000/api/auth/hod/regulations/save-draft", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1301,14 +1408,55 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       setDraftSaveFeedback(error.message || "Unable to save draft");
     } finally {
       setIsSavingDraft(false);
-      setIsConfirmSaveOpen(false);
     }
   };
 
-  const confirmAndSaveDraft = () => {
-    if (isSavingDraft) return;
-    setIsConfirmSaveOpen(false);
-    handleSaveDraft();
+  const handleSaveAsNewVersion = async () => {
+    if (!formFields.regulation.trim()) {
+      toast.error("Enter a regulation code before creating new version");
+      return;
+    }
+
+    const departmentName = user.department || '';
+    if (!departmentName.trim()) {
+      toast.error("Department is required");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Authentication required. Please log in again.");
+      return;
+    }
+
+    try {
+      setIsCreatingNewVersion(true);
+      const res = await fetch("http://localhost:5000/api/auth/hod/regulations/save-new-version", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          regulationCode: formFields.regulation,
+          department: departmentName,
+          formData: serializeFormFields(formFields),
+          changeSummary,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create new version");
+
+      toast.success(`New version ${data.regulation.version} created successfully`);
+      setIsNewVersionDialogOpen(false);
+      onDraftSaved?.();
+    } catch (error: any) {
+      console.error("Save new version error", error);
+      toast.error(error.message || "Unable to create new version");
+    } finally {
+      setIsCreatingNewVersion(false);
+    }
   };
 
   const handleManualUpload = async () => {
@@ -1336,7 +1484,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       const formData = new FormData();
       formData.append("file", manualUploadFile, "Curriculum.docx");
 
-      const uploadRes = await fetch("https://csms-x9aw.onrender.com/api/auth/upload", {
+      const uploadRes = await fetch("http://localhost:5000/api/auth/upload", {
         method: "POST",
         body: formData,
       });
@@ -1344,7 +1492,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       if (!uploadRes.ok) throw new Error("Upload failed");
       const { fileId } = await uploadRes.json();
 
-      const linkRes = await fetch("https://csms-x9aw.onrender.com/api/auth/upload-curriculum", {
+      const linkRes = await fetch("http://localhost:5000/api/auth/upload-curriculum", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -1712,103 +1860,6 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
           </div>
         );
       })}
-      <div className="text-center mt-6">
-        <Button
-          onClick={handleGeneratePDF}
-          className="w-full md:w-auto bg-purple-600 hover:bg-purple-700 text-white"
-          disabled={isGenerating}
-        >
-          {isGenerating ? 'Generating...' : 'Generate Curriculum DOCX'}
-        </Button>
-      </div>
-      <div className="p-6 border rounded-md bg-white dark:bg-gray-800 shadow-sm">
-        <h2 className="text-xl font-semibold text-purple-600">Send Curriculum to Superuser</h2>
-        {selectedRegulation?.regulationCode && (
-          <div className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-300">
-            <p>
-              Editing {selectedRegulation.regulationCode} • Version {selectedRegulation.version ?? 'Draft'}{' '}
-              ({selectedRegulation.status ?? 'Draft'})
-            </p>
-            <p className="text-xs">
-              {selectedRegulation.isLatest === false ? 'Snapshot' : 'Current draft'}
-              {' '}• Saved {formatDisplayDate(selectedRegulation.savedAt)}
-            </p>
-          </div>
-        )}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Regulation</label>
-            <input
-              type="text"
-              value={formFields.regulation}
-              onChange={(e) => setFormFields((prev) => ({ ...prev, regulation: e.target.value }))}
-              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-              placeholder="E.g., R26"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Department</label>
-            <input
-              type="text"
-              value={formFields.branchName}
-              onChange={(e) => setFormFields((prev) => ({ ...prev, branchName: e.target.value }))}
-              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-              placeholder="E.g., CSE"
-            />
-          </div>
-        </div>
-        <div className="space-y-2 mt-4">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Change Summary / Notes</label>
-          <Textarea
-            value={changeSummary}
-            onChange={(e) => setChangeSummary(e.target.value)}
-            placeholder="Briefly describe what changed in this version"
-            className="w-full"
-          />
-        </div>
-        <input
-          type="file"
-          accept=".docx"
-          onChange={(e) => setManualUploadFile(e.target.files?.[0] || null)}
-          className="w-full p-2 mt-4 border rounded-md dark:bg-gray-800 dark:text-white"
-        />
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Button
-            variant="outline"
-            onClick={() => setIsConfirmSaveOpen(true)}
-            disabled={isUploading || isSavingDraft}
-            className="text-purple-600"
-          >
-            {isSavingDraft ? "Saving..." : "Save Draft"}
-          </Button>
-          <Button
-            onClick={handleManualUpload}
-            disabled={!manualUploadFile || isUploading}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
-          >
-            {isUploading ? "Uploading..." : "Send Curriculum DOCX"}
-          </Button>
-        </div>
-        <AlertDialog open={isConfirmSaveOpen} onOpenChange={setIsConfirmSaveOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Save this draft?</AlertDialogTitle>
-              <AlertDialogDescription>
-                {`Regulation ${formFields.regulation || '—'} will be saved as a new draft version with your current changes.`}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={isSavingDraft}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmAndSaveDraft} disabled={isSavingDraft}>
-                {isSavingDraft ? 'Saving...' : 'Save Draft'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-        {draftSaveFeedback && (
-          <p className="mt-2 text-sm text-muted-foreground">{draftSaveFeedback}</p>
-        )}
-      </div>
     </div>
   );
 
@@ -1820,8 +1871,22 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         transition={{ duration: 0.3 }}
         className="w-full max-w-4xl"
       >
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 text-center">Create Curriculum</h1>
-        <p className="text-gray-600 dark:text-gray-400 text-center">Enter curriculum details to generate documents</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create Curriculum</h1>
+            <p className="text-gray-600 dark:text-gray-400">Enter curriculum details to generate documents</p>
+          </div>
+          <Button
+            onClick={handleSaveDraft}
+            disabled={isSavingDraft}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            {isSavingDraft ? "Saving..." : "Save"}
+          </Button>
+        </div>
+        {draftSaveFeedback && (
+          <p className="mt-2 text-sm text-muted-foreground text-right">{draftSaveFeedback}</p>
+        )}
       </motion.div>
       <div className="w-full max-w-4xl mt-6">
         <div className="flex justify-center space-x-4 border-b dark:border-gray-700">
@@ -1832,6 +1897,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
             { label: 'Electives', section: 'electives' },
             { label: 'Open Electives', section: 'openElectives' },
             { label: 'Mandatory Courses', section: 'mandatoryCourses' },
+            { label: 'Review & Submit', section: 'reviewSubmit' },
           ].map(({ label, section }) => (
             <button
               key={section}
@@ -1998,9 +2064,118 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
               {SEMESTERS.map(({ key, label }) => renderSemesterCourseInputs(key, label))}
             </div>
           )}
-          {activeSection === 'electives' && renderProfessionalElectives()}
-          {activeSection === 'openElectives' && renderOpenElectiveInputs()}
-          {activeSection === 'mandatoryCourses' && renderMandatoryCourseInputs()}
+          {activeSection === 'electives' && (
+            <div>
+              {renderProfessionalElectives()}
+            </div>
+          )}
+          {activeSection === 'openElectives' && (
+            <div>
+              {renderOpenElectiveInputs()}
+            </div>
+          )}
+          {activeSection === 'mandatoryCourses' && (
+            <div>
+              {renderMandatoryCourseInputs()}
+              <div className="mt-6 flex justify-end gap-3">
+                <Button
+                  onClick={handleGeneratePDF}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? 'Generating...' : 'Generate Curriculum DOCX'}
+                </Button>
+                <Button
+                  onClick={() => setIsNewVersionDialogOpen(true)}
+                  disabled={isCreatingNewVersion}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {isCreatingNewVersion ? "Creating..." : "Save as New Version"}
+                </Button>
+              </div>
+              <AlertDialog open={isNewVersionDialogOpen} onOpenChange={setIsNewVersionDialogOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Create New Version?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will create a new version of the regulation "{formFields.regulation}" with your current changes. The previous version will be preserved.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isCreatingNewVersion}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSaveAsNewVersion} disabled={isCreatingNewVersion}>
+                      {isCreatingNewVersion ? 'Creating...' : 'Create New Version'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          )}
+          {activeSection === 'reviewSubmit' && (
+            <div className="space-y-6">
+              <div className="p-6 border rounded-md bg-white dark:bg-gray-800 shadow-sm">
+                <h2 className="text-xl font-semibold text-purple-600">Send Curriculum to Superuser</h2>
+                {selectedRegulation?.regulationCode && (
+                  <div className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                    <p>
+                      Editing {selectedRegulation.regulationCode} • Version {selectedRegulation.version ?? 'Draft'}{' '}
+                      ({selectedRegulation.status ?? 'Draft'})
+                    </p>
+                    <p className="text-xs">
+                      {selectedRegulation.isLatest === false ? 'Snapshot' : 'Current draft'}
+                      {' '}• Saved {formatDisplayDate(selectedRegulation.savedAt)}
+                    </p>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Regulation</label>
+                    <input
+                      type="text"
+                      value={formFields.regulation}
+                      onChange={(e) => setFormFields((prev) => ({ ...prev, regulation: e.target.value }))}
+                      className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                      placeholder="E.g., R26"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Department</label>
+                    <input
+                      type="text"
+                      value={formFields.branchName}
+                      onChange={(e) => setFormFields((prev) => ({ ...prev, branchName: e.target.value }))}
+                      className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                      placeholder="E.g., CSE"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2 mt-4">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Change Summary / Notes</label>
+                  <Textarea
+                    value={changeSummary}
+                    onChange={(e) => setChangeSummary(e.target.value)}
+                    placeholder="Briefly describe what changed in this version"
+                    className="w-full"
+                  />
+                </div>
+                <input
+                  type="file"
+                  accept=".docx"
+                  onChange={(e) => setManualUploadFile(e.target.files?.[0] || null)}
+                  className="w-full p-2 mt-4 border rounded-md dark:bg-gray-800 dark:text-white"
+                />
+                <div className="mt-4">
+                  <Button
+                    onClick={handleManualUpload}
+                    disabled={!manualUploadFile || isUploading}
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    {isUploading ? "Uploading..." : "Send Curriculum DOCX"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </motion.div>
       </div>
     </div>
