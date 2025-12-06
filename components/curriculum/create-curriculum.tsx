@@ -353,7 +353,7 @@ const CourseInputRow: React.FC<{
     onChange(index, 'courseTitle', selectedSubject.title);
     if (selectedSubject.syllabusUrl) {
       try {
-        const baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
+        const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://csms-x9aw.onrender.com';
         const syllabusUrl = `${baseUrl}/api/auth/file/${selectedSubject.syllabusUrl}`;
         const response = await fetch(syllabusUrl);
         if (!response.ok) throw new Error(`Failed to fetch syllabus file: ${response.statusText}`);
@@ -522,7 +522,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
     const fetchRegulations = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch("http://localhost:5000/api/auth/hod/regulations", {
+        const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -564,8 +564,8 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         
         const queryString = params.toString();
         const url = queryString 
-          ? `http://localhost:5000/api/auth/subjects-by-regulation?${queryString}`
-          : "http://localhost:5000/api/auth/subjects";
+          ? `https://csms-x9aw.onrender.com/api/auth/subjects-by-regulation?${queryString}`
+          : "https://csms-x9aw.onrender.com/api/auth/subjects";
         
         const res = await fetch(url, {
           headers: {
@@ -596,7 +596,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
   // Function to re-fetch syllabus files from saved syllabusUrl
   const refetchSyllabusFile = async (syllabusUrl: string, isFirstRow: boolean = false, headerTitle: string = ''): Promise<File | undefined> => {
     try {
-      const baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
+      const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://csms-x9aw.onrender.com';
       const fileUrl = `${baseUrl}/api/auth/file/${syllabusUrl}`;
       const response = await fetch(fileUrl);
       if (!response.ok) return undefined;
@@ -827,7 +827,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       const selectedSubject = allSubjects.find((subj) => subj._id === value);
       if (selectedSubject) {
         try {
-          const baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
+          const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://csms-x9aw.onrender.com';
           const syllabusUrl = `${baseUrl}/api/auth/file/${selectedSubject.syllabusUrl}`;
           const response = await fetch(syllabusUrl);
           if (!response.ok) throw new Error(`Failed to fetch syllabus file: ${response.statusText}`);
@@ -1381,7 +1381,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
     try {
       setIsSavingDraft(true);
       setDraftSaveFeedback(null);
-      const res = await fetch("http://localhost:5000/api/auth/hod/regulations/save-draft", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations/save-draft", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1431,7 +1431,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
 
     try {
       setIsCreatingNewVersion(true);
-      const res = await fetch("http://localhost:5000/api/auth/hod/regulations/save-new-version", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations/save-new-version", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1484,7 +1484,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       const formData = new FormData();
       formData.append("file", manualUploadFile, "Curriculum.docx");
 
-      const uploadRes = await fetch("http://localhost:5000/api/auth/upload", {
+      const uploadRes = await fetch("https://csms-x9aw.onrender.com/api/auth/upload", {
         method: "POST",
         body: formData,
       });
@@ -1492,7 +1492,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       if (!uploadRes.ok) throw new Error("Upload failed");
       const { fileId } = await uploadRes.json();
 
-      const linkRes = await fetch("http://localhost:5000/api/auth/upload-curriculum", {
+      const linkRes = await fetch("https://csms-x9aw.onrender.com/api/auth/upload-curriculum", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
