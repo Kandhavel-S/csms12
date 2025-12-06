@@ -363,7 +363,7 @@ const CourseInputRow: React.FC<{
         let file: File | undefined = undefined;
 
         if (isFirstInSection && headerTitle && extension === 'docx') {
-          const mergeRes = await fetch(`https://csms12.onrender.com/merge-first-syllabus`, {
+          const mergeRes = await fetch(`https://csmspy.onrender.com/merge-first-syllabus`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -608,7 +608,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       // Merge header for first row if needed
       if (isFirstRow && extension === 'docx' && headerTitle) {
         try {
-          const mergeRes = await fetch(`https://csms12.onrender.com/merge-first-syllabus`, {
+          const mergeRes = await fetch(`https://csmspy.onrender.com/merge-first-syllabus`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -841,7 +841,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
             const verticalNumber = formFields.professionalElectives[columnIndex].verticalNumber;
             const verticalName = formFields.professionalElectives[columnIndex].verticalName;
             const headerTitle = verticalName ? `${verticalNumber} - ${verticalName}` : verticalNumber;
-            const mergeRes = await fetch(`https://csms12.onrender.com/merge-first-syllabus`, {
+            const mergeRes = await fetch(`https://csmspy.onrender.com/merge-first-syllabus`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
