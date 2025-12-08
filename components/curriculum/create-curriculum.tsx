@@ -1368,7 +1368,10 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       });
 
-      saveAs(finalBlob, 'Full_Curriculum.docx');
+      const fileName = formFields.regulation && formFields.branchName
+        ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Curriculum.docx`
+        : 'Full_Curriculum.docx';
+      saveAs(finalBlob, fileName);
       toast.success('✔️ Full Curriculum downloaded successfully');
     } catch (error) {
       console.error('Error generating curriculum:', error);

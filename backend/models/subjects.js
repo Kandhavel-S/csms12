@@ -8,6 +8,7 @@ const subjectSchema = new mongoose.Schema({
   assignedExpert: { type: String, ref: "User", default: "" }, 
   createdBy: {type: String, required: true},
   regulationId: { type: mongoose.Schema.Types.ObjectId, ref: "Regulation" },
+  regulationCode: { type: String, default: "" },
   department: { type: String, default: "" },
   syllabusUrl: { type: mongoose.Schema.Types.ObjectId, ref: "uploads.files" },
   status: { type: String, default: "Draft" },

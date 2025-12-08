@@ -35,9 +35,11 @@ interface Subject {
   semester?: number;
   displayOrder?: number;
   regulationId?: string | { _id: string; regulationCode?: string; department?: string } | any;
+  regulationCode?: string;
   courseType?: string;
   ltpcCode?: string;
   subjectType?: string;
+  department?: string;
 }
 
 interface RegulationVersionSummary {
@@ -145,6 +147,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [hasUnsavedCurriculumChanges, setHasUnsavedCurriculumChanges] = useState(false);
   const [isLeaveCurriculumDialogOpen, setIsLeaveCurriculumDialogOpen] = useState(false);
   const [pendingTab, setPendingTab] = useState<string | null>(null);
+  const [courseCodeWarning, setCourseCodeWarning] = useState<string>("");
 
 
 
@@ -394,24 +397,51 @@ export default function HODDashboard({ user }: HODDashboardProps) {
 
   const handleCourseCodeChange = async (code: string) => {
     setNewSubjectCode(code);
+    setCourseCodeWarning(""); // Clear previous warning
 
-    if (!code.trim() || !selectedRegulationForSubject) return;
+    if (!code.trim()) {
+      setNewSubjectName(""); // Clear title if course code is empty
+      return;
+    }
+    
+    if (!selectedRegulationForSubject) return;
 
     try {
-      // Check if this course code already exists in the SAME regulation and department
-      const res = await fetch(
-        `http://localhost:5000/api/auth/get-subjects?regulationId=${selectedRegulationForSubject}&department=${user.department}`
-      );
-      const existingSubjects = await res.json();
+      // Get the regulation code for comparison
+      const selectedReg = regulations.find(r => r.versions[0]?._id === selectedRegulationForSubject);
+      const regCode = selectedReg?.regulationCode;
       
-      const existingSubject = existingSubjects.find(
-        (s: Subject) => s.code === code.trim()
+      if (!regCode) return;
+
+      // Fetch all subjects (no filter) to check across departments
+      const res = await fetch(
+        `http://localhost:5000/api/auth/get-subjects`
+      );
+      const allSubjects = await res.json();
+      
+      // Filter by regulation code (string comparison)
+      const existingSubjects = allSubjects.filter(
+        (s: Subject) => s.regulationCode === regCode
+      );
+      
+      const existingInSameDept = existingSubjects.find(
+        (s: Subject) => s.code === code.trim() && s.department === user.department
+      );
+      
+      const existingInOtherDept = existingSubjects.find(
+        (s: Subject) => s.code === code.trim() && s.department !== user.department
       );
 
-      if (existingSubject) {
-        // Auto-fill the title with the existing one
-        setNewSubjectName(existingSubject.title);
-        toast.success(`Course code already exists in this department. Title auto-filled: "${existingSubject.title}"`);
+      if (existingInSameDept) {
+        setCourseCodeWarning(`⚠️ Course code "${code}" already exists in this department for this regulation.`);
+        setNewSubjectName(""); // Clear title for duplicate in same department
+      } else if (existingInOtherDept) {
+        // Auto-fill the title from the other department
+        setNewSubjectName(existingInOtherDept.title);
+        setCourseCodeWarning(`ℹ️ Course code "${code}" exists in ${existingInOtherDept.department} department. Title auto-filled. Same title is required for cross-department courses.`);
+      } else {
+        // Clear title if no existing course found
+        setNewSubjectName("");
       }
     } catch (error) {
       console.error("Error checking course code:", error);
@@ -423,36 +453,53 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     try {
       const regulationId = selectedRegulationForSubject || selectedRegulationId;
       
-      // Check if the course code already exists in the SAME regulation and department
-      const checkRes = await fetch(
-        `http://localhost:5000/api/auth/get-subjects?regulationId=${regulationId}&department=${user.department}`
-      );
-      const existingSubjects = await checkRes.json();
+      // Get the regulation code for comparison
+      const selectedReg = regulations.find(r => r.versions[0]?._id === regulationId);
+      const regCode = selectedReg?.regulationCode;
       
-      const existingSubjectWithSameCode = existingSubjects.find(
-        (s: Subject) => s.code === newSubjectCode.trim()
+      if (!regCode) {
+        toast.error("Could not find regulation code");
+        return;
+      }
+      
+      // Fetch all subjects to check across departments
+      const checkRes = await fetch(
+        `http://localhost:5000/api/auth/get-subjects`
+      );
+      const allSubjects = await checkRes.json();
+      
+      // Filter by regulation code (string comparison)
+      const existingSubjects = allSubjects.filter(
+        (s: Subject) => s.regulationCode === regCode
+      );
+      
+      const existingInSameDept = existingSubjects.find(
+        (s: Subject) => s.code === newSubjectCode.trim() && s.department === user.department
+      );
+      
+      const existingInOtherDept = existingSubjects.find(
+        (s: Subject) => s.code === newSubjectCode.trim() && s.department !== user.department
       );
 
-      // If course code exists in this department and regulation, validate that the title matches
-      if (existingSubjectWithSameCode) {
-        if (existingSubjectWithSameCode.title !== newSubjectName.trim()) {
-          toast.error(
-            `Course code "${newSubjectCode}" already exists in this department for this regulation with title "${existingSubjectWithSameCode.title}". Please use the same title or choose a different course code.`
-          );
-          return;
-        }
-        // Check if it's a duplicate entry in the same semester
-        if (existingSubjectWithSameCode.semester === selectedSemester) {
-          toast.error(
-            `This subject "${newSubjectCode}" already exists in Semester ${selectedSemester} of this department.`
-          );
-          return;
-        }
+      // If course code exists in this department and regulation, prevent adding it again
+      if (existingInSameDept) {
+        toast.error(
+          `Course code "${newSubjectCode}" already exists in this department for this regulation. Each course code can only be added once per department per regulation.`
+        );
+        return;
+      }
+      
+      // If course code exists in another department, title MUST match
+      if (existingInOtherDept && existingInOtherDept.title !== newSubjectName.trim()) {
+        toast.error(
+          `Course code "${newSubjectCode}" exists in ${existingInOtherDept.department} department with title "${existingInOtherDept.title}". To use the same course code across departments, the title must match exactly.`
+        );
+        return;
       }
 
-      // Get the next display order for this semester
+      // Get the next display order for this semester and department
       const semesterSubjects = existingSubjects.filter(
-        (s: Subject) => s.semester === selectedSemester
+        (s: Subject) => s.semester === selectedSemester && s.department === user.department
       );
       const maxOrder = semesterSubjects.length === 0 
         ? -1 
@@ -468,6 +515,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
           assignedExpert: "",
           createdBy: user._id,
           regulationId: regulationId,
+          regulationCode: regCode,
           department: user.department || "",
           semester: selectedSemester,
           displayOrder: maxOrder + 1,
@@ -494,6 +542,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
       setLtpcT("");
       setLtpcP("");
       setLtpcC("");
+      setCourseCodeWarning("");
       setIsAddSubjectOpen(false);
       toast.success("Subject added successfully");
     } catch (err) {
@@ -1404,7 +1453,10 @@ const handleLeaveWithoutSaving = () => {
             </CardContent>
 
             {/* Add Subject Dialog */}
-            <Dialog open={isAddSubjectOpen} onOpenChange={setIsAddSubjectOpen}>
+            <Dialog open={isAddSubjectOpen} onOpenChange={(open) => {
+              setIsAddSubjectOpen(open);
+              if (!open) setCourseCodeWarning("");
+            }}>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Add New Subject</DialogTitle>
@@ -1418,6 +1470,9 @@ const handleLeaveWithoutSaving = () => {
                       onChange={(e) => handleCourseCodeChange(e.target.value)}
                       placeholder="Enter subject code (e.g., CS101)"
                     />
+                    {courseCodeWarning && (
+                      <p className="text-sm text-red-600 mt-1">{courseCodeWarning}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="subject-title">Subject Title</Label>

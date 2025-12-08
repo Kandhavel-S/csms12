@@ -24,7 +24,7 @@ router.post('/', upload.single('file'), async (req, res) => {
 
     fs.unlinkSync(filePath); // optional: remove temp file
 
-    const model = genAI.getGenerativeModel({ model: 'models/gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'models/gemini-2.5-flash' });
 
     const prompt = `
 Extract the following syllabus data. Respond with ONLY a valid JSON object (no markdown, no explanation):
