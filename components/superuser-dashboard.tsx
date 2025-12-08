@@ -110,7 +110,7 @@ export const CurriculumRow = ({ deptVersions }: CurriculumRowProps) => {
         {selectedVersion ? (
           selectedVersion.curriculumUrl ? (
             <a
-              href={`http://localhost:5000/api/auth/file/${selectedVersion.curriculumUrl}`}
+              href={`https://csms-x9aw.onrender.com/api/auth/file/${selectedVersion.curriculumUrl}`}
               target="_blank"
               rel="noopener noreferrer"
               download
@@ -169,8 +169,8 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
   const fetchDepartments = async () => {
     const [hodRes, deptRes] = await Promise.all([
-      fetch("http://localhost:5000/api/auth/hods"),
-      fetch("http://localhost:5000/api/auth/departments"),
+      fetch("https://csms-x9aw.onrender.com/api/auth/hods"),
+      fetch("https://csms-x9aw.onrender.com/api/auth/departments"),
     ]);
     const hodData = await hodRes.json();
     const deptData = await deptRes.json();
@@ -185,7 +185,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   const fetchRegulations = useCallback(async () => {
     try {
       setRegulationsError(null);
-      const res = await fetch("http://localhost:5000/api/auth/regulations");
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/regulations");
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data?.error || "Failed to fetch regulations");
@@ -213,7 +213,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   const handleUpdateDepartment = async (deptId: string) => {
     setShowEditDialogId(null);
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/departments/${deptId}`, {
+      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/departments/${deptId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: editDeptName, hod: editDeptHOD }),
@@ -231,7 +231,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     if (!newRegulationCode.trim()) return toast.error("Regulation code is required");
     setCreatingRegulation(true);
     try {
-      const res = await fetch("http://localhost:5000/api/auth/create-regulation", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/create-regulation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: newRegulationCode }),
@@ -254,7 +254,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     if (!selectedRegulation) return;
     setIsDeletingRegulation(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/regulations/${encodeURIComponent(selectedRegulation)}`, {
+      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/regulations/${encodeURIComponent(selectedRegulation)}`, {
         method: "DELETE",
       });
       const data = await res.json();
@@ -274,7 +274,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   const handleCreateDepartment = async () => {
     if (!newDeptName.trim()) return toast.error("Department name is required");
     try {
-      const res = await fetch("http://localhost:5000/api/auth/create-department", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/create-department", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newDeptName.trim(), hodId: selectedHodId || undefined }),
@@ -316,7 +316,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
       const deptName = dept?.name ?? "";
 
       // 1) Create or upgrade HOD user
-      const createRes = await fetch("http://localhost:5000/api/auth/assign-hod", {
+      const createRes = await fetch("https://csms-x9aw.onrender.com/api/auth/assign-hod", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -335,7 +335,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
       if (!newHodId) throw new Error("No HOD id returned");
 
       // 2) Assign/replace HOD for department
-      const deptRes = await fetch("http://localhost:5000/api/auth/change-hod", {
+      const deptRes = await fetch("https://csms-x9aw.onrender.com/api/auth/change-hod", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
