@@ -124,7 +124,7 @@ exports.getUsersByRole = async (req, res) => {
 
 exports.addSubject = async (req,res) => {
   try {
-    const { code, title, createdBy, regulationId, department, semester, displayOrder } = req.body;
+    const { code, title, createdBy, regulationId, department, semester, displayOrder, courseType, subjectType, ltpcCode } = req.body;
 
     if (!code || !title) return res.status(400).json({ error: "Missing fields" });
 
@@ -149,7 +149,10 @@ exports.addSubject = async (req,res) => {
       regulationId: regulationId || null,
       department: department || "",
       semester: semester || null,
-      displayOrder: displayOrder || 0
+      displayOrder: displayOrder || 0,
+      courseType: courseType || "",
+      subjectType: subjectType || "",
+      ltpcCode: ltpcCode || ""
     });
     await newSubject.save();
 

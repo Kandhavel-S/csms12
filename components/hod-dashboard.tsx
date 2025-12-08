@@ -35,6 +35,9 @@ interface Subject {
   semester?: number;
   displayOrder?: number;
   regulationId?: string | { _id: string; regulationCode?: string; department?: string } | any;
+  courseType?: string;
+  ltpcCode?: string;
+  subjectType?: string;
 }
 
 interface RegulationVersionSummary {
@@ -93,6 +96,12 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [newSubjectCode, setNewSubjectCode] = useState("")
   const [newSubjectName, setNewSubjectName] = useState("")
   const [selectedRegulationForSubject, setSelectedRegulationForSubject] = useState<string>("")
+  const [courseType, setCourseType] = useState<string>("")
+  const [subjectType, setSubjectType] = useState<string>("")
+  const [ltpcL, setLtpcL] = useState<string>("")
+  const [ltpcT, setLtpcT] = useState<string>("")
+  const [ltpcP, setLtpcP] = useState<string>("")
+  const [ltpcC, setLtpcC] = useState<string>("")
   const [facultyName, setFacultyName] = useState("")
   const [expertName, setExpertName] = useState("")
   const [facultyForm, setFacultyForm] = useState({
@@ -112,6 +121,8 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [selectedRegulationId, setSelectedRegulationId] = useState<string | null>(null);
   const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
   const [draggedSubjectId, setDraggedSubjectId] = useState<string | null>(null);
+  const [hasUnsavedOrder, setHasUnsavedOrder] = useState(false);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [selectedFaculty, setSelectedFaculty] = useState<string | null>(null);
   const [selectedExpert, setSelectedExpert] = useState<string | null>(null);
   const [trackerRegulationFilter, setTrackerRegulationFilter] = useState<string>("all");
@@ -131,14 +142,17 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [regulationToRename, setRegulationToRename] = useState<RegulationSummary | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [isRenamingRegulation, setIsRenamingRegulation] = useState(false);
+  const [hasUnsavedCurriculumChanges, setHasUnsavedCurriculumChanges] = useState(false);
+  const [isLeaveCurriculumDialogOpen, setIsLeaveCurriculumDialogOpen] = useState(false);
+  const [pendingTab, setPendingTab] = useState<string | null>(null);
 
 
 
   useEffect(() => {
     const fetchDropdownUsers = async () => {
       const [facultyRes, expertRes] = await Promise.all([
-        fetch("https://csms-x9aw.onrender.com/api/auth/by-role?role=faculty"),
-        fetch("https://csms-x9aw.onrender.com/api/auth/by-role?role=subject-expert"),
+        fetch("http://localhost:5000/api/auth/by-role?role=faculty"),
+        fetch("http://localhost:5000/api/auth/by-role?role=subject-expert"),
       ]);
 
       const facultyNames = await facultyRes.json();
@@ -155,9 +169,14 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     fetchSubjects();
   }, []);
   
+  // Reset unsaved order flag when changing semester or regulation
+  useEffect(() => {
+    setHasUnsavedOrder(false);
+  }, [selectedRegulationId, selectedSemester]);
+  
   const fetchSubjects = async () => {
     try {
-      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/get-subjects?department=${user.department}`);
+      const res = await fetch(`http://localhost:5000/api/auth/get-subjects?department=${user.department}`);
       const data = await res.json();
       setSubjects(data);
       console.log("📦 Subjects fetched:", data);
@@ -176,7 +195,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         throw new Error("Authentication required. Please log in again.");
       }
 
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations", {
+      const res = await fetch("http://localhost:5000/api/auth/hod/regulations", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -277,7 +296,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
       }
 
       // Create the regulation with version 1
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations/save-draft", {
+      const res = await fetch("http://localhost:5000/api/auth/hod/regulations/save-draft", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -333,7 +352,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         throw new Error("Authentication required. Please log in again.");
       }
 
-      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/hod/regulation-version/${versionId}`, {
+      const res = await fetch(`http://localhost:5000/api/auth/hod/regulation-version/${versionId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -379,9 +398,9 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     if (!code.trim() || !selectedRegulationForSubject) return;
 
     try {
-      // Check if this course code already exists in the SAME regulation
+      // Check if this course code already exists in the SAME regulation and department
       const res = await fetch(
-        `https://csms-x9aw.onrender.com/api/auth/get-subjects?regulationId=${selectedRegulationForSubject}`
+        `http://localhost:5000/api/auth/get-subjects?regulationId=${selectedRegulationForSubject}&department=${user.department}`
       );
       const existingSubjects = await res.json();
       
@@ -392,7 +411,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
       if (existingSubject) {
         // Auto-fill the title with the existing one
         setNewSubjectName(existingSubject.title);
-        toast.success(`Course code already exists in this regulation. Title auto-filled: "${existingSubject.title}"`);
+        toast.success(`Course code already exists in this department. Title auto-filled: "${existingSubject.title}"`);
       }
     } catch (error) {
       console.error("Error checking course code:", error);
@@ -404,9 +423,9 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     try {
       const regulationId = selectedRegulationForSubject || selectedRegulationId;
       
-      // Check if the course code already exists in the SAME regulation
+      // Check if the course code already exists in the SAME regulation and department
       const checkRes = await fetch(
-        `https://csms-x9aw.onrender.com/api/auth/get-subjects?regulationId=${regulationId}`
+        `http://localhost:5000/api/auth/get-subjects?regulationId=${regulationId}&department=${user.department}`
       );
       const existingSubjects = await checkRes.json();
       
@@ -414,11 +433,18 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         (s: Subject) => s.code === newSubjectCode.trim()
       );
 
-      // If course code exists in this regulation, validate that the title matches
+      // If course code exists in this department and regulation, validate that the title matches
       if (existingSubjectWithSameCode) {
         if (existingSubjectWithSameCode.title !== newSubjectName.trim()) {
           toast.error(
-            `Course code "${newSubjectCode}" already exists in this regulation with title "${existingSubjectWithSameCode.title}". Please use the same title or choose a different course code.`
+            `Course code "${newSubjectCode}" already exists in this department for this regulation with title "${existingSubjectWithSameCode.title}". Please use the same title or choose a different course code.`
+          );
+          return;
+        }
+        // Check if it's a duplicate entry in the same semester
+        if (existingSubjectWithSameCode.semester === selectedSemester) {
+          toast.error(
+            `This subject "${newSubjectCode}" already exists in Semester ${selectedSemester} of this department.`
           );
           return;
         }
@@ -428,9 +454,11 @@ export default function HODDashboard({ user }: HODDashboardProps) {
       const semesterSubjects = existingSubjects.filter(
         (s: Subject) => s.semester === selectedSemester
       );
-      const maxOrder = Math.max(0, ...semesterSubjects.map((s: Subject) => s.displayOrder || 0));
+      const maxOrder = semesterSubjects.length === 0 
+        ? -1 
+        : Math.max(...semesterSubjects.map((s: Subject) => s.displayOrder || 0));
 
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/add-subject", {
+      const res = await fetch("http://localhost:5000/api/auth/add-subject", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -442,7 +470,10 @@ export default function HODDashboard({ user }: HODDashboardProps) {
           regulationId: regulationId,
           department: user.department || "",
           semester: selectedSemester,
-          displayOrder: maxOrder + 1
+          displayOrder: maxOrder + 1,
+          courseType: courseType || "",
+          subjectType: subjectType || "",
+          ltpcCode: `${ltpcL}-${ltpcT}-${ltpcP}-${ltpcC}`
         }),
       });
 
@@ -457,6 +488,12 @@ export default function HODDashboard({ user }: HODDashboardProps) {
       setNewSubjectCode("");
       setNewSubjectName("");
       setSelectedRegulationForSubject("");
+      setCourseType("");
+      setSubjectType("");
+      setLtpcL("");
+      setLtpcT("");
+      setLtpcP("");
+      setLtpcC("");
       setIsAddSubjectOpen(false);
       toast.success("Subject added successfully");
     } catch (err) {
@@ -484,7 +521,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     if (!selectedSubjectId || !selectedFaculty) return;
 
     try {
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/update-fac-exp", {
+      const res = await fetch("http://localhost:5000/api/auth/update-fac-exp", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -511,7 +548,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     if (!selectedSubjectId || !selectedExpert) return;
 
     try {
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/update-fac-exp", {
+      const res = await fetch("http://localhost:5000/api/auth/update-fac-exp", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -550,7 +587,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   if (!selectedSubjectId) return;
 
   try {
-    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/edit-subjects/${selectedSubjectId}`, {
+    const res = await fetch(`http://localhost:5000/api/auth/edit-subjects/${selectedSubjectId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -596,7 +633,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
           throw new Error("No token found. Please log in again.");
         }
 
-        const res = await fetch("https://csms-x9aw.onrender.com/api/auth/assign-faculty", {
+        const res = await fetch("http://localhost:5000/api/auth/assign-faculty", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -633,7 +670,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
 
     const handleApprove = async (subjectId: string) => {
   try {
-    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/subject/${subjectId}/approve`, {
+    const res = await fetch(`http://localhost:5000/api/auth/subject/${subjectId}/approve`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
     });
@@ -659,7 +696,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
 
 const handleReject = async (subjectId: string) => {
   try {
-    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/subject/${subjectId}/reject`, {
+    const res = await fetch(`http://localhost:5000/api/auth/subject/${subjectId}/reject`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
     });
@@ -687,7 +724,7 @@ const handleDeleteSubject = async () => {
 
   try {
     const token = localStorage.getItem("token");
-    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/delete-subject/${subjectToDelete.id}`, {
+    const res = await fetch(`http://localhost:5000/api/auth/delete-subject/${subjectToDelete.id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -721,7 +758,7 @@ const handleDeleteRegulation = async () => {
   try {
     const token = localStorage.getItem("token");
     const res = await fetch(
-      `https://csms-x9aw.onrender.com/api/auth/regulations/${regulationToDelete.regulationCode}`,
+      `http://localhost:5000/api/auth/regulations/${regulationToDelete.regulationCode}`,
       {
         method: "DELETE",
         headers: {
@@ -761,7 +798,7 @@ const handleRenameRegulation = async () => {
   try {
     const token = localStorage.getItem("token");
     const res = await fetch(
-      `https://csms-x9aw.onrender.com/api/auth/regulations/${regulationToRename.regulationCode}/rename`,
+      `http://localhost:5000/api/auth/regulations/${regulationToRename.regulationCode}/rename`,
       {
         method: "PUT",
         headers: {
@@ -795,6 +832,43 @@ const handleRenameRegulation = async () => {
   } finally {
     setIsRenamingRegulation(false);
   }
+};
+
+const handleTabChange = (newTab: string) => {
+  // If leaving curriculum tab and there are unsaved changes, show confirmation dialog
+  if (activeTab === "curriculum" && newTab !== "curriculum" && hasUnsavedCurriculumChanges) {
+    setPendingTab(newTab);
+    setIsLeaveCurriculumDialogOpen(true);
+  } else {
+    setActiveTab(newTab);
+  }
+};
+
+const handleSaveAndLeave = async () => {
+  // Trigger save functionality in CreateCurriculum component
+  // This will be handled by passing a ref or callback
+  const saveButton = document.querySelector('[data-save-curriculum-button]') as HTMLButtonElement;
+  if (saveButton) {
+    saveButton.click();
+    // Wait a bit for save to complete
+    setTimeout(() => {
+      if (pendingTab) {
+        setActiveTab(pendingTab);
+        setPendingTab(null);
+        setHasUnsavedCurriculumChanges(false);
+      }
+      setIsLeaveCurriculumDialogOpen(false);
+    }, 500);
+  }
+};
+
+const handleLeaveWithoutSaving = () => {
+  if (pendingTab) {
+    setActiveTab(pendingTab);
+    setPendingTab(null);
+    setHasUnsavedCurriculumChanges(false);
+  }
+  setIsLeaveCurriculumDialogOpen(false);
 };
 
 
@@ -913,13 +987,19 @@ const handleRenameRegulation = async () => {
           e.preventDefault();
         };
 
-        const handleDrop = async (targetSubjectId: string) => {
-          if (!draggedSubjectId || draggedSubjectId === targetSubjectId) return;
+        const handleDrop = (targetSubjectId: string) => {
+          if (!draggedSubjectId || draggedSubjectId === targetSubjectId) {
+            setDraggedSubjectId(null);
+            return;
+          }
 
           const draggedIndex = filteredSubjects.findIndex(s => s._id === draggedSubjectId);
           const targetIndex = filteredSubjects.findIndex(s => s._id === targetSubjectId);
 
-          if (draggedIndex === -1 || targetIndex === -1) return;
+          if (draggedIndex === -1 || targetIndex === -1) {
+            setDraggedSubjectId(null);
+            return;
+          }
 
           // Reorder locally
           const newSubjects = [...filteredSubjects];
@@ -945,22 +1025,36 @@ const handleRenameRegulation = async () => {
             return [...filtered, ...updatedSubjects];
           });
 
-          // Save to backend
+          // Mark as having unsaved changes
+          setHasUnsavedOrder(true);
+          setDraggedSubjectId(null);
+        };
+
+        const handleSaveOrder = async () => {
+          if (!hasUnsavedOrder) return;
+          
+          setIsSavingOrder(true);
           try {
-            await fetch('https://csms-x9aw.onrender.com/api/auth/update-subject-order', {
+            const response = await fetch('http://localhost:5000/api/auth/update-subject-order', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                subjectIds: updatedSubjects.map(s => ({ id: s._id, displayOrder: s.displayOrder }))
+                subjectIds: filteredSubjects.map(s => ({ id: s._id, displayOrder: s.displayOrder }))
               })
             });
-            toast.success('Order updated successfully');
+
+            if (!response.ok) {
+              throw new Error('Failed to save order');
+            }
+
+            toast.success('Subject order saved successfully');
+            setHasUnsavedOrder(false);
           } catch (err) {
             console.error('Failed to update subject order:', err);
-            toast.error('Failed to save new order');
+            toast.error('Failed to save subject order');
+          } finally {
+            setIsSavingOrder(false);
           }
-
-          setDraggedSubjectId(null);
         };
 
         return (
@@ -972,9 +1066,25 @@ const handleRenameRegulation = async () => {
                     <BookOpen className="h-5 w-5" />
                     Subject Allocation
                   </CardTitle>
-                  <CardDescription>Navigate: Regulations → Semesters → Subjects</CardDescription>
+                  <CardDescription>
+                    Navigate: Regulations → Semesters → Subjects
+                    {selectedSemester && " • Drag to reorder subjects"}
+                  </CardDescription>
                 </div>
                 <div className="flex gap-2">
+                  {selectedSemester && hasUnsavedOrder && (
+                    <Button 
+                      className="bg-green-600 hover:bg-green-700" 
+                      onClick={handleSaveOrder}
+                      disabled={isSavingOrder}
+                    >
+                      {isSavingOrder ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>
+                      ) : (
+                        <>Save Order</>
+                      )}
+                    </Button>
+                  )}
                   {selectedSemester && (
                     <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setIsAddSubjectOpen(true)}>
                       <Plus className="mr-2 h-4 w-4" />
@@ -1071,7 +1181,7 @@ const handleRenameRegulation = async () => {
                           onClick={async () => {
                             setCreating(true);
                             try {
-                              const res = await fetch("https://csms-x9aw.onrender.com/api/auth/assign-expert", {
+                              const res = await fetch("http://localhost:5000/api/auth/assign-expert", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
@@ -1217,11 +1327,13 @@ const handleRenameRegulation = async () => {
                         onDragStart={() => handleDragStart(subject._id)}
                         onDragOver={handleDragOver}
                         onDrop={() => handleDrop(subject._id)}
-                        className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-accent cursor-move transition-colors"
+                        className={`flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-accent cursor-move transition-colors ${
+                          draggedSubjectId === subject._id ? 'opacity-50 border-purple-500' : ''
+                        }`}
                       >
                         <div className="flex items-center gap-4 flex-1">
-                          <div className="flex flex-col gap-1">
-                            <span className="w-1 h-10 bg-purple-600 rounded"></span>
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-semibold text-sm">
+                            {(subject.displayOrder ?? 0) + 1}
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
@@ -1353,6 +1465,88 @@ const handleRenameRegulation = async () => {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="course-type">Course Type</Label>
+                    <Select 
+                      value={courseType} 
+                      onValueChange={setCourseType}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select Course Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="HSMC">Humanities & Social Science (HSMC)</SelectItem>
+                        <SelectItem value="BSC">Basic Science (BSC)</SelectItem>
+                        <SelectItem value="ESC">Engineering Science (ESC)</SelectItem>
+                        <SelectItem value="PCC">Program Core (PCC)</SelectItem>
+                        <SelectItem value="PEC">Professional Elective (PEC)</SelectItem>
+                        <SelectItem value="OEC">Open Elective (OEC)</SelectItem>
+                        <SelectItem value="EEC">Employability Enhancement (EEC)</SelectItem>
+                        <SelectItem value="MC">Mandatory Courses (MC)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="subject-type">Subject Type</Label>
+                    <Select 
+                      value={subjectType} 
+                      onValueChange={setSubjectType}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select Subject Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Theory">Theory</SelectItem>
+                        <SelectItem value="Practical">Practical</SelectItem>
+                        <SelectItem value="T&P">T&P</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>LTPC Code</Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <Label htmlFor="ltpc-l" className="text-xs">L</Label>
+                        <Input
+                          id="ltpc-l"
+                          value={ltpcL}
+                          onChange={(e) => setLtpcL(e.target.value)}
+                          placeholder="0"
+                          className="text-center"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="ltpc-t" className="text-xs">T</Label>
+                        <Input
+                          id="ltpc-t"
+                          value={ltpcT}
+                          onChange={(e) => setLtpcT(e.target.value)}
+                          placeholder="0"
+                          className="text-center"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="ltpc-p" className="text-xs">P</Label>
+                        <Input
+                          id="ltpc-p"
+                          value={ltpcP}
+                          onChange={(e) => setLtpcP(e.target.value)}
+                          placeholder="0"
+                          className="text-center"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="ltpc-c" className="text-xs">C</Label>
+                        <Input
+                          id="ltpc-c"
+                          value={ltpcC}
+                          onChange={(e) => setLtpcC(e.target.value)}
+                          placeholder="0"
+                          className="text-center"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <Button onClick={handleAddSubject} className="w-full bg-purple-600 hover:bg-purple-700">
                     Add Subject
@@ -1670,7 +1864,7 @@ const handleRenameRegulation = async () => {
                             <TableCell className="flex flex-wrap gap-2">
                         {subject.syllabusUrl && (
                           <a
-                            href={`https://csms-x9aw.onrender.com/api/auth/file/${subject.syllabusUrl}`}
+                            href={`http://localhost:5000/api/auth/file/${subject.syllabusUrl}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             download
@@ -1729,11 +1923,16 @@ const handleRenameRegulation = async () => {
           <CreateCurriculum
             user={user}
             selectedRegulation={selectedRegulationDetail}
-            onDraftSaved={fetchRegulations}
+            onDraftSaved={() => {
+              fetchRegulations();
+              setHasUnsavedCurriculumChanges(false);
+            }}
             onSubmitted={() => {
               fetchRegulations();
+              setHasUnsavedCurriculumChanges(false);
             }}
             resetSignal={formResetSignal}
+            onFormChange={() => setHasUnsavedCurriculumChanges(true)}
           />
         )
 
@@ -1875,7 +2074,7 @@ const handleRenameRegulation = async () => {
                               </div>
                               {version.curriculumUrl && (
                                 <a
-                                  href={`https://csms-x9aw.onrender.com/api/auth/file/${version.curriculumUrl}`}
+                                  href={`http://localhost:5000/api/auth/file/${version.curriculumUrl}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >
@@ -2037,9 +2236,27 @@ const handleRenameRegulation = async () => {
   }
 
   return (
-    <DashboardLayout user={user} activeTab={activeTab} onTabChange={setActiveTab}>
-      {renderContent()}
-    </DashboardLayout>
+    <>
+      <DashboardLayout user={user} activeTab={activeTab} onTabChange={handleTabChange}>
+        {renderContent()}
+      </DashboardLayout>
+
+      {/* Leave Curriculum Confirmation Dialog */}
+      <AlertDialog open={isLeaveCurriculumDialogOpen} onOpenChange={setIsLeaveCurriculumDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>You may lose changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes in the curriculum form. Do you want to save before leaving?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleLeaveWithoutSaving}>Leave</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSaveAndLeave}>Save Now</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 

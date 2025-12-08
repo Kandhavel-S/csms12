@@ -52,7 +52,7 @@ router.get("/subjects-by-regulation", async (req, res) => {
     if (regulationId) filter.regulationId = regulationId;
     if (department) filter.department = department;
     
-    const subjects = await Subject.find(filter).select("_id title code syllabusUrl regulationId department");
+    const subjects = await Subject.find(filter).select("_id title code syllabusUrl regulationId department courseType subjectType ltpcCode semester");
     res.json(subjects);
   } catch (err) {
     console.error("Error fetching filtered subjects:", err);

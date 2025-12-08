@@ -48,7 +48,7 @@ export default function SubjectExpertDashboard({ user }: SubjectExpertDashboardP
 
   const fetchAssignedSubjects = async () => {
       try {
-        const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/expert-subjects/${user._id}`)
+        const res = await fetch(`http://localhost:5000/api/auth/expert-subjects/${user._id}`)
         const data = await res.json()
         const formattedSubjects = data.map((item: any, idx: number) => ({
           _id: item._id,
@@ -92,7 +92,7 @@ export default function SubjectExpertDashboard({ user }: SubjectExpertDashboardP
     const formData = new FormData();
     formData.append("file", file);
 
-    const uploadRes = await fetch("https://csms-x9aw.onrender.com/api/auth/upload", {
+    const uploadRes = await fetch("http://localhost:5000/api/auth/upload", {
       method: "POST",
       body: formData,
     });
@@ -103,7 +103,7 @@ export default function SubjectExpertDashboard({ user }: SubjectExpertDashboardP
     if (!fileId) throw new Error("File upload failed");
 
     // Link file to subject and update status (regulationId and department are already in the subject record)
-    const res = await fetch("https://csms-x9aw.onrender.com/api/auth/send-to-hod", {
+    const res = await fetch("http://localhost:5000/api/auth/send-to-hod", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ subjectId, fileId }),
@@ -125,7 +125,7 @@ export default function SubjectExpertDashboard({ user }: SubjectExpertDashboardP
 
   const handleApprove = async (subjectId: string) => {
     try {
-      await fetch(`https://csms-x9aw.onrender.com/api/auth/subject/${subjectId}/approve`, {
+      await fetch(`http://localhost:5000/api/auth/subject/${subjectId}/approve`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
       })
@@ -140,7 +140,7 @@ export default function SubjectExpertDashboard({ user }: SubjectExpertDashboardP
   const handleSendFeedback = async () => {
     if (!feedback.trim() || !selectedSyllabusId) return
     try {
-      await fetch(`https://csms-x9aw.onrender.com/api/auth/subject/${selectedSyllabusId}/feedback`, {
+      await fetch(`http://localhost:5000/api/auth/subject/${selectedSyllabusId}/feedback`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ feedback })

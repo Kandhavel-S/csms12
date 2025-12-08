@@ -139,6 +139,7 @@ interface CreateCurriculumProps {
   onDraftSaved?: () => void;
   onSubmitted?: () => void;
   resetSignal?: number;
+  onFormChange?: () => void;
 }
 
 interface CourseCounts {
@@ -353,7 +354,7 @@ const CourseInputRow: React.FC<{
     onChange(index, 'courseTitle', selectedSubject.title);
     if (selectedSubject.syllabusUrl) {
       try {
-        const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://csms-x9aw.onrender.com';
+        const baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
         const syllabusUrl = `${baseUrl}/api/auth/file/${selectedSubject.syllabusUrl}`;
         const response = await fetch(syllabusUrl);
         if (!response.ok) throw new Error(`Failed to fetch syllabus file: ${response.statusText}`);
@@ -501,6 +502,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
   onDraftSaved,
   onSubmitted,
   resetSignal,
+  onFormChange,
 }) => {
   const [allSubjects, setAllSubjects] = useState<{ _id: string; title: string; code: string; syllabusUrl?: string }[]>([]);
   const [regulations, setRegulations] = useState<any[]>([]);
@@ -510,19 +512,32 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [changeSummary, setChangeSummary] = useState('');
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isAutofilling, setIsAutofilling] = useState(false);
   const [draftSaveFeedback, setDraftSaveFeedback] = useState<string | null>(null);
   const [isNewVersionDialogOpen, setIsNewVersionDialogOpen] = useState(false);
   const [isCreatingNewVersion, setIsCreatingNewVersion] = useState(false);
   const [courseCounts, setCourseCounts] = useState<CourseCounts>(() => buildDefaultCourseCounts());
 
   const [formFields, setFormFields] = useState<FormFields>(() => buildDefaultFormFields());
+  const [isInitialMount, setIsInitialMount] = useState(true);
+
+  // Track form changes (skip initial mount and when loading saved data)
+  useEffect(() => {
+    if (isInitialMount) {
+      setIsInitialMount(false);
+      return;
+    }
+    if (onFormChange && !isSavingDraft) {
+      onFormChange();
+    }
+  }, [formFields]);
 
   // Fetch regulations for filtering subjects
   useEffect(() => {
     const fetchRegulations = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations", {
+        const res = await fetch("http://localhost:5000/api/auth/hod/regulations", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -564,8 +579,8 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         
         const queryString = params.toString();
         const url = queryString 
-          ? `https://csms-x9aw.onrender.com/api/auth/subjects-by-regulation?${queryString}`
-          : "https://csms-x9aw.onrender.com/api/auth/subjects";
+          ? `http://localhost:5000/api/auth/subjects-by-regulation?${queryString}`
+          : "http://localhost:5000/api/auth/subjects";
         
         const res = await fetch(url, {
           headers: {
@@ -591,12 +606,13 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
     setFormFields(base);
     setChangeSummary('');
     setCourseCounts(buildDefaultCourseCounts());
+    setIsInitialMount(true); // Reset to prevent triggering change on form reset
   }, [resetSignal]);
 
   // Function to re-fetch syllabus files from saved syllabusUrl
   const refetchSyllabusFile = async (syllabusUrl: string, isFirstRow: boolean = false, headerTitle: string = ''): Promise<File | undefined> => {
     try {
-      const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://csms-x9aw.onrender.com';
+      const baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
       const fileUrl = `${baseUrl}/api/auth/file/${syllabusUrl}`;
       const response = await fetch(fileUrl);
       if (!response.ok) return undefined;
@@ -713,6 +729,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         setFormFields(merged);
         setCourseCounts(deriveCourseCounts(merged));
         setChangeSummary(selectedRegulation.changeSummary || '');
+        setIsInitialMount(true); // Reset to prevent triggering change on data load
         return;
       }
 
@@ -723,6 +740,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
           branchName: prev.branchName || '',
         }));
         setChangeSummary(selectedRegulation.changeSummary || '');
+        setIsInitialMount(true); // Reset to prevent triggering change on data load
       }
     };
 
@@ -827,7 +845,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       const selectedSubject = allSubjects.find((subj) => subj._id === value);
       if (selectedSubject) {
         try {
-          const baseUrl = process.env.REACT_APP_API_BASE_URL || 'https://csms-x9aw.onrender.com';
+          const baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
           const syllabusUrl = `${baseUrl}/api/auth/file/${selectedSubject.syllabusUrl}`;
           const response = await fetch(syllabusUrl);
           if (!response.ok) throw new Error(`Failed to fetch syllabus file: ${response.statusText}`);
@@ -1360,6 +1378,186 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
     }
   };
 
+  const handleAutofill = async () => {
+    if (!formFields.regulation.trim()) {
+      toast.error("Please enter a regulation code first");
+      return;
+    }
+
+    try {
+      setIsAutofilling(true);
+      const token = localStorage.getItem("token");
+      
+      // Fetch subjects for the regulation
+      const params = new URLSearchParams();
+      if (user.department) {
+        params.append("department", user.department);
+      }
+      
+      // Find regulation ID
+      const matchedReg = regulations.find(
+        (reg) =>
+          reg.regulationCode === formFields.regulation &&
+          reg.department === user.department
+      );
+      
+      if (matchedReg && matchedReg.versions[0]?._id) {
+        params.append("regulationId", matchedReg.versions[0]._id);
+      }
+      
+      const res = await fetch(
+        `http://localhost:5000/api/auth/get-subjects?${params.toString()}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      
+      if (!res.ok) throw new Error("Failed to fetch subjects");
+      
+      const subjects = await res.json();
+      
+      if (!subjects || subjects.length === 0) {
+        toast.error("No subjects found for this regulation");
+        return;
+      }
+      
+      // Sort subjects by displayOrder to maintain correct order
+      subjects.sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0));
+      
+      // Map course types to their arrays
+      const courseTypeMap: { [key: string]: string } = {
+        'HSMC': 'hsmcCourses',
+        'BSC': 'bscCourses',
+        'ESC': 'escCourses',
+        'PCC': 'pccCourses',
+        'PEC': 'pecCourses',
+        'OEC': 'oecCourses',
+        'EEC': 'eecCourses',
+        'MC': 'mcCourses',
+      };
+      
+      // Initialize course arrays
+      const newFormFields = { ...formFields };
+      
+      // Reset course arrays
+      Object.values(courseTypeMap).forEach(key => {
+        (newFormFields as any)[key] = [];
+      });
+      
+      // Reset semester arrays
+      for (let i = 1; i <= 8; i++) {
+        (newFormFields as any)[`semester${i}Courses`] = [];
+      }
+      
+      // Group subjects by semester first
+      const subjectsBySemester: { [key: number]: any[] } = {};
+      for (let i = 1; i <= 8; i++) {
+        subjectsBySemester[i] = [];
+      }
+      
+      subjects.forEach((subject: any) => {
+        if (subject.semester >= 1 && subject.semester <= 8) {
+          subjectsBySemester[subject.semester].push(subject);
+        }
+      });
+      
+      // Sort each semester's subjects by displayOrder and populate
+      Object.keys(subjectsBySemester).forEach((semKey) => {
+        const sem = parseInt(semKey);
+        const semesterSubjects = subjectsBySemester[sem];
+        
+        // Sort by displayOrder within each semester
+        semesterSubjects.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+        
+        // Populate semester array with sequential S.No from 1 to n
+        semesterSubjects.forEach((subject, index) => {
+          const ltpcParts = subject.ltpcCode ? subject.ltpcCode.split('-') : ['', '', '', ''];
+          const semesterArray = (newFormFields as any)[`semester${sem}Courses`];
+          
+          semesterArray.push({
+            sno: (index + 1).toString(), // S.No from 1 to n based on displayOrder
+            type: subject.subjectType || '',
+            courseCode: subject.code || '',
+            courseTitle: subject.title || '',
+            syllabusUrl: subject.syllabusUrl || '',
+            syllabusFile: undefined,
+            l: ltpcParts[0] || '',
+            t: ltpcParts[1] || '',
+            p: ltpcParts[2] || '',
+            c: ltpcParts[3] || '',
+          });
+        });
+      });
+      
+      // Populate courses by type (for the Courses tab)
+      subjects.forEach((subject: any) => {
+        const ltpcParts = subject.ltpcCode ? subject.ltpcCode.split('-') : ['', '', '', ''];
+        
+        // Add to course type array
+        if (subject.courseType && courseTypeMap[subject.courseType]) {
+          const courseArray = (newFormFields as any)[courseTypeMap[subject.courseType]];
+          const semesterRoman = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'][subject.semester || 1];
+          
+          courseArray.push({
+            sno: (courseArray.length + 1).toString(),
+            courseTitle: subject.title || '',
+            semester: semesterRoman,
+            syllabusUrl: subject.syllabusUrl || '',
+            syllabusFile: undefined,
+            l: ltpcParts[0] || '',
+            t: ltpcParts[1] || '',
+            p: ltpcParts[2] || '',
+            c: ltpcParts[3] || '',
+          });
+        }
+      });
+      
+      // Ensure at least one empty row if no subjects found for a category
+      Object.values(courseTypeMap).forEach((key) => {
+        if ((newFormFields as any)[key].length === 0) {
+          (newFormFields as any)[key] = [{
+            sno: '1',
+            courseTitle: '',
+            semester: '',
+            syllabusUrl: '',
+            syllabusFile: undefined,
+            l: '',
+            t: '',
+            p: '',
+            c: ''
+          }];
+        }
+      });
+      
+      for (let i = 1; i <= 8; i++) {
+        if ((newFormFields as any)[`semester${i}Courses`].length === 0) {
+          (newFormFields as any)[`semester${i}Courses`] = [{
+            sno: '1',
+            type: '',
+            courseCode: '',
+            courseTitle: '',
+            syllabusUrl: '',
+            syllabusFile: undefined,
+            l: '',
+            t: '',
+            p: '',
+            c: ''
+          }];
+        }
+      }
+      
+      setFormFields(newFormFields);
+      setCourseCounts(deriveCourseCounts(newFormFields));
+      toast.success(`Autofilled ${subjects.length} subjects successfully`);
+      
+    } catch (error: any) {
+      console.error("Autofill error:", error);
+      toast.error(error.message || "Failed to autofill subjects");
+    } finally {
+      setIsAutofilling(false);
+    }
+  };
+
   const handleSaveDraft = async () => {
     if (!formFields.regulation.trim()) {
       toast.error("Enter a regulation code before saving the draft");
@@ -1381,7 +1579,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
     try {
       setIsSavingDraft(true);
       setDraftSaveFeedback(null);
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations/save-draft", {
+      const res = await fetch("http://localhost:5000/api/auth/hod/regulations/save-draft", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1431,7 +1629,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
 
     try {
       setIsCreatingNewVersion(true);
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations/save-new-version", {
+      const res = await fetch("http://localhost:5000/api/auth/hod/regulations/save-new-version", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1484,7 +1682,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       const formData = new FormData();
       formData.append("file", manualUploadFile, "Curriculum.docx");
 
-      const uploadRes = await fetch("https://csms-x9aw.onrender.com/api/auth/upload", {
+      const uploadRes = await fetch("http://localhost:5000/api/auth/upload", {
         method: "POST",
         body: formData,
       });
@@ -1492,7 +1690,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       if (!uploadRes.ok) throw new Error("Upload failed");
       const { fileId } = await uploadRes.json();
 
-      const linkRes = await fetch("https://csms-x9aw.onrender.com/api/auth/upload-curriculum", {
+      const linkRes = await fetch("http://localhost:5000/api/auth/upload-curriculum", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -1876,13 +2074,23 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create Curriculum</h1>
             <p className="text-gray-600 dark:text-gray-400">Enter curriculum details to generate documents</p>
           </div>
-          <Button
-            onClick={handleSaveDraft}
-            disabled={isSavingDraft}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
-          >
-            {isSavingDraft ? "Saving..." : "Save"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleAutofill}
+              disabled={!formFields.regulation || isAutofilling}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {isAutofilling ? "Autofilling..." : "Autofill"}
+            </Button>
+            <Button
+              onClick={handleSaveDraft}
+              disabled={isSavingDraft}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+              data-save-curriculum-button
+            >
+              {isSavingDraft ? "Saving..." : "Save"}
+            </Button>
+          </div>
         </div>
         {draftSaveFeedback && (
           <p className="mt-2 text-sm text-muted-foreground text-right">{draftSaveFeedback}</p>

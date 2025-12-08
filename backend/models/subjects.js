@@ -14,7 +14,10 @@ const subjectSchema = new mongoose.Schema({
   feedback: { type: String, default: "" },
   lastUpdated: { type: Date },
   semester: { type: Number, min: 1, max: 8 },
-  displayOrder: { type: Number, default: 0 }
+  displayOrder: { type: Number, default: 0 },
+  courseType: { type: String, default: "" },
+  subjectType: { type: String, default: "" },
+  ltpcCode: { type: String, default: "" }
 }, { timestamps: true });
 
 // Drop the old unique index on 'code' field if it exists

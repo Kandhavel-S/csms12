@@ -108,7 +108,7 @@ const CreateSyllabus = () => {
     formData.append('file', file);
 
     try {
-      const response = await fetch('https://csms-x9aw.onrender.com/extract-syllabus', {
+      const response = await fetch('http://localhost:5000/extract-syllabus', {
         method: 'POST',
         body: formData,
       });
