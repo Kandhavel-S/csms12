@@ -24,6 +24,7 @@ interface User {
 
 interface SubjectItem {
   _id: string
+  code: string
   title: string
   assignedFaculty: string
   facultyName: string
@@ -31,6 +32,7 @@ interface SubjectItem {
   status: string
   syllabusFile?: string
   regulationId?: string | { _id: string; regulationCode?: string } | any
+  regulationCode?: string
   semester?: number
 }
 
@@ -50,20 +52,33 @@ export default function SubjectExpertDashboard({ user }: SubjectExpertDashboardP
       try {
         const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/expert-subjects/${user._id}`)
         const data = await res.json()
+        
+        // Check if data is an array before mapping
+        if (!Array.isArray(data)) {
+          console.error("Expected array but got:", data)
+          setReviews([])
+          return
+        }
+        
         const formattedSubjects = data.map((item: any, idx: number) => ({
           _id: item._id,
+          code: item.code,
           title: item.title,
           assignedFaculty: item.assignedFaculty,
           facultyName: item.facultyName,
           lastUpdated: item.lastUpdated,
           status: item.status,
-          syllabusFile: item.syllabusUrl, // 👈 rename to match interface
+          syllabusFile: item.syllabusUrl,
+          semester: item.semester,
+          regulationId: item.regulationId,
+          regulationCode: item.regulationCode,
         }));
 
         setReviews(formattedSubjects)
         console.log(formattedSubjects)
       } catch (err) {
         console.error("Failed to load subjects", err)
+        setReviews([])
       }
     }
 
@@ -258,13 +273,8 @@ const renderContent = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Regulations</SelectItem>
-                  {Array.from(new Set(reviews.map(r => {
-                    const regId = typeof r.regulationId === "string" 
-                      ? r.regulationId 
-                      : r.regulationId?._id || r.regulationId?.toString();
-                    return regId;
-                  }).filter(Boolean))).map((regId) => (
-                    <SelectItem key={regId} value={regId as string}>{regId}</SelectItem>
+                  {Array.from(new Set(reviews.map(r => r.regulationCode).filter(Boolean))).map((regCode) => (
+                    <SelectItem key={regCode} value={regCode as string}>{regCode}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -304,6 +314,7 @@ const renderContent = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Code</TableHead>
                 <TableHead>Subject</TableHead>
                 <TableHead>Regulation</TableHead>
                 <TableHead>Semester</TableHead>
@@ -317,10 +328,7 @@ const renderContent = () => {
               {reviews
                 .filter((review) => {
                   if (regulationFilter && regulationFilter !== "all") {
-                    const reviewRegId = typeof review.regulationId === "string" 
-                      ? review.regulationId 
-                      : review.regulationId?._id || review.regulationId?.toString();
-                    if (reviewRegId !== regulationFilter) return false;
+                    if (review.regulationCode !== regulationFilter) return false;
                   }
                   if (semesterFilter && semesterFilter !== "all") {
                     if (review.semester?.toString() !== semesterFilter) return false;
@@ -329,12 +337,11 @@ const renderContent = () => {
                 })
                 .map((review) => (
                 <TableRow key={review._id}>
+                  <TableCell className="font-mono text-sm">{review.code}</TableCell>
                   <TableCell onClick={() => setActiveTab("create-draft")}>{review.title}</TableCell>
                   <TableCell>
                     <Badge variant="outline">
-                      {typeof review.regulationId === "string" 
-                        ? review.regulationId 
-                        : review.regulationId?.regulationCode || "N/A"}
+                      {review.regulationCode || "N/A"}
                     </Badge>
                   </TableCell>
                   <TableCell>

@@ -108,7 +108,7 @@ const CreateSyllabus = () => {
     formData.append('file', file);
 
     try {
-      const response = await fetch('https://csms-x9aw.onrender.com/extract-syllabus', {
+      const response = await fetch('http://localhost:5000/extract-syllabus', {
         method: 'POST',
         body: formData,
       });
@@ -124,10 +124,21 @@ const CreateSyllabus = () => {
       const units = [];
       for (let i = 1; i <= 5; i++) {
         if (extractedData[`unit${i}Name`] || extractedData[`unit${i}Hours`] || extractedData[`unit${i}Content`]) {
+          // Handle unit content - can be array or string
+          let contentValue = '';
+          const rawContent = extractedData[`unit${i}Content`];
+          
+          if (Array.isArray(rawContent)) {
+            // Join array elements with newlines
+            contentValue = rawContent.filter(item => item && item.trim()).join('\n');
+          } else if (typeof rawContent === 'string') {
+            contentValue = rawContent;
+          }
+          
           units.push({
             name: extractedData[`unit${i}Name`] || '',
             hours: extractedData[`unit${i}Hours`] || '',
-            content: extractedData[`unit${i}Content`] || '',
+            content: contentValue,
           });
         }
       }
@@ -317,7 +328,14 @@ const CreateSyllabus = () => {
     formFields.units.forEach((unit, i) => {
       data[`UNIT${i + 1}_NAME`] = unit.name;
       data[`UNIT${i + 1}_HOURS`] = unit.hours;
-      data[`UNIT${i + 1}_CONTENT`] = unit.content;
+      
+      // Convert content into array of strings for proper justification
+      const contentLines = unit.content
+        .split('\n')
+        .filter(line => line.trim().length > 0);
+      
+      // Pass array of strings directly - docxtemplater will iterate with {.}
+      data[`UNIT${i + 1}_CONTENT_ITEMS`] = contentLines;
     });
 
    
@@ -340,10 +358,7 @@ const CreateSyllabus = () => {
       const url = window.URL.createObjectURL(docxBlob);
       const link = document.createElement('a');
       link.href = url;
-      const fileName = subject && title 
-        ? `${subject}_${title.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}.docx`
-        : 'Generated_Syllabus.docx';
-      link.download = fileName;
+      link.download = 'Generated_Syllabus.docx';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

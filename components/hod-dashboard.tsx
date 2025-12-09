@@ -453,9 +453,11 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     try {
       const regulationId = selectedRegulationForSubject || selectedRegulationId;
       
-      // Get the regulation code for comparison
       const selectedReg = regulations.find(r => r.versions[0]?._id === regulationId);
       const regCode = selectedReg?.regulationCode;
+      
+      console.log("Selected regulation:", selectedReg);
+      console.log("Regulation code to save:", regCode);
       
       if (!regCode) {
         toast.error("Could not find regulation code");
@@ -505,24 +507,28 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         ? -1 
         : Math.max(...semesterSubjects.map((s: Subject) => s.displayOrder || 0));
 
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/add-subject", {
+      const requestBody = {
+        code: newSubjectCode,
+        title: newSubjectName,
+        assignedFaculty: "",
+        assignedExpert: "",
+        createdBy: user._id,
+        regulationId: regulationId,
+        regulationCode: regCode,
+        department: user.department || "",
+        semester: selectedSemester,
+        displayOrder: maxOrder + 1,
+        courseType: courseType || "",
+        subjectType: subjectType || "",
+        ltpcCode: `${ltpcL}-${ltpcT}-${ltpcP}-${ltpcC}`
+      };
+
+      console.log("Sending request body:", requestBody);
+
+      const res = await fetch("http://localhost:5000/api/auth/add-subject", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: newSubjectCode,
-          title: newSubjectName,
-          assignedFaculty: "",
-          assignedExpert: "",
-          createdBy: user._id,
-          regulationId: regulationId,
-          regulationCode: regCode,
-          department: user.department || "",
-          semester: selectedSemester,
-          displayOrder: maxOrder + 1,
-          courseType: courseType || "",
-          subjectType: subjectType || "",
-          ltpcCode: `${ltpcL}-${ltpcT}-${ltpcP}-${ltpcC}`
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await res.json();
@@ -1867,7 +1873,7 @@ const handleLeaveWithoutSaving = () => {
                       <TableHead>Subject</TableHead>
                       <TableHead>Regulation</TableHead>
                       <TableHead>Semester</TableHead>
-                      <TableHead>Faculty</TableHead>
+                      <TableHead>Expert</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Last Updated</TableHead>
                       <TableHead>Actions</TableHead>
@@ -1905,7 +1911,7 @@ const handleLeaveWithoutSaving = () => {
                                 Sem {subject.semester || "N/A"}
                               </Badge>
                             </TableCell>
-                            <TableCell>{getFacultyNameById(subject.assignedFaculty) || "N/A"}</TableCell>
+                            <TableCell>{getExpertNameById(subject.assignedExpert) || "N/A"}</TableCell>
                             <TableCell>
                               <Badge className={getStatusColor(subject.status === "Sent to HOD" ? "Received" : subject.status)}>
                                 {subject.status === "Sent to HOD" ? "Received" : subject.status}

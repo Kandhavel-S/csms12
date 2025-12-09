@@ -124,7 +124,9 @@ exports.getUsersByRole = async (req, res) => {
 
 exports.addSubject = async (req,res) => {
   try {
-    const { code, title, createdBy, regulationId, department, semester, displayOrder, courseType, subjectType, ltpcCode } = req.body;
+    const { code, title, createdBy, regulationId, regulationCode, department, semester, displayOrder, courseType, subjectType, ltpcCode } = req.body;
+
+    console.log("Adding subject with regulationCode:", regulationCode);
 
     if (!code || !title) return res.status(400).json({ error: "Missing fields" });
 
@@ -147,6 +149,7 @@ exports.addSubject = async (req,res) => {
       title, 
       createdBy,
       regulationId: regulationId || null,
+      regulationCode: regulationCode || "",
       department: department || "",
       semester: semester || null,
       displayOrder: displayOrder || 0,
@@ -154,7 +157,10 @@ exports.addSubject = async (req,res) => {
       subjectType: subjectType || "",
       ltpcCode: ltpcCode || ""
     });
+    
+    console.log("New subject before save:", newSubject);
     await newSubject.save();
+    console.log("Subject saved with regulationCode:", newSubject.regulationCode);
 
     res.status(201).json({ message: "Subject created", subject: newSubject });
   } catch (err) {
