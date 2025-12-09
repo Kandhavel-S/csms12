@@ -525,7 +525,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
 
       console.log("Sending request body:", requestBody);
 
-      const res = await fetch("http://localhost:5000/api/auth/add-subject", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/add-subject", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
