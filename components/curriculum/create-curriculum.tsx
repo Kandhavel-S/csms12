@@ -364,7 +364,7 @@ const CourseInputRow: React.FC<{
         let file: File | undefined = undefined;
 
         if (isFirstInSection && headerTitle && extension === 'docx') {
-          const mergeRes = await fetch(`https://csmspy.onrender.com/merge-first-syllabus`, {
+          const mergeRes = await fetch(`http://localhost:5001/merge-first-syllabus`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -624,7 +624,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       // Merge header for first row if needed
       if (isFirstRow && extension === 'docx' && headerTitle) {
         try {
-          const mergeRes = await fetch(`https://csmspy.onrender.com/merge-first-syllabus`, {
+          const mergeRes = await fetch(`http://localhost:5001/merge-first-syllabus`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -859,7 +859,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
             const verticalNumber = formFields.professionalElectives[columnIndex].verticalNumber;
             const verticalName = formFields.professionalElectives[columnIndex].verticalName;
             const headerTitle = verticalName ? `${verticalNumber} - ${verticalName}` : verticalNumber;
-            const mergeRes = await fetch(`https://csmspy.onrender.com/merge-first-syllabus`, {
+            const mergeRes = await fetch(`http://localhost:5001/merge-first-syllabus`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -1377,8 +1377,8 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         const formData = new FormData();
         formData.append('file', finalBlob, `${fileName}.docx`);
 
-        // Use Render URL for production, localhost for development
-        const API_URL = process.env.NEXT_PUBLIC_PDF_API_URL || 'https://csmspy.onrender.com';
+        // Use dedicated PDF conversion service hosted on Render
+        const API_URL = process.env.NEXT_PUBLIC_PDF_API_URL || 'https://csmspdf.onrender.com';
         const response = await fetch(`${API_URL}/api/convert-docx-to-pdf`, {
           method: 'POST',
           body: formData,

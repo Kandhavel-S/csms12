@@ -7,6 +7,7 @@ import io
 import os
 import tempfile
 import subprocess
+import hashlib
 from pathlib import Path
 from werkzeug.utils import secure_filename
 import shutil
@@ -24,59 +25,109 @@ def allowed_file(filename):
 def check_libreoffice():
     """Check if LibreOffice is installed"""
     try:
-        result = subprocess.run(['libreoffice', '--version'], 
-                              capture_output=True, 
-                              text=True, 
-                              timeout=5)
-        return {'available': True, 'version': result.stdout.strip()}
-    except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+        # Try both command names
+        for cmd in ['soffice', 'libreoffice']:
+            try:
+                result = subprocess.run([cmd, '--version'], 
+                                      capture_output=True, 
+                                      text=True, 
+                                      timeout=5)
+                if result.returncode == 0:
+                    return {'available': True, 'version': result.stdout.strip(), 'command': cmd}
+            except:
+                continue
+        return {'available': False, 'error': 'LibreOffice not found'}
+    except Exception as e:
         return {'available': False, 'error': str(e)}
 
-def convert_docx_to_pdf_libreoffice(docx_path, output_dir):
-    """Convert DOCX to PDF using LibreOffice headless mode"""
+def convert_docx_to_pdf_libreoffice(docx_buffer, original_filename):
+    """Convert DOCX to PDF using LibreOffice with exact formatting preservation"""
+    temp_dir = os.path.join(tempfile.gettempdir(), f'docx-pdf-{hashlib.md5(docx_buffer).hexdigest()}')
+    
     try:
-        print(f"🔄 Converting: {docx_path}")
+        os.makedirs(temp_dir, exist_ok=True)
+        print(f"📁 Created temp directory: {temp_dir}")
+
+        # Save DOCX exactly as received (no modifications)
+        docx_path = os.path.join(temp_dir, original_filename)
+        with open(docx_path, 'wb') as f:
+            f.write(docx_buffer)
+        print(f"💾 Saved DOCX: {docx_path} ({len(docx_buffer)} bytes)")
+
+        print(f"🔄 Converting DOCX to PDF with LibreOffice...")
         
-        # Run LibreOffice conversion
-        cmd = [
-            'libreoffice',
+        # LibreOffice command with options for exact formatting preservation
+        command = [
+            'soffice',
             '--headless',
-            '--convert-to',
-            'pdf',
-            '--outdir',
-            output_dir,
+            '--invisible',
+            '--nodefault',
+            '--nofirststartwizard',
+            '--nolockcheck',
+            '--nologo',
+            '--norestore',
+            '--convert-to', 'pdf:writer_pdf_Export',
+            '--outdir', temp_dir,
             docx_path
         ]
         
+        # Set environment to prevent LibreOffice from modifying formatting
+        env = os.environ.copy()
+        env['HOME'] = temp_dir  # Isolated config
+        
         result = subprocess.run(
-            cmd,
+            command,
+            timeout=120,
             capture_output=True,
             text=True,
-            timeout=120,  # 2 minutes timeout
-            check=True
+            env=env,
+            cwd=temp_dir
         )
-        
+
+        if result.returncode != 0:
+            print(f"⚠️ First attempt failed, trying alternative command...")
+            # Fallback to simpler command
+            simple_command = ['libreoffice', '--headless', '--convert-to', 'pdf', '--outdir', temp_dir, docx_path]
+            result = subprocess.run(simple_command, timeout=120, capture_output=True, text=True, env=env, cwd=temp_dir)
+            
+            if result.returncode != 0:
+                raise Exception(f"LibreOffice conversion failed: {result.stderr}")
+
+        if result.stdout:
+            print(f"✅ LibreOffice output: {result.stdout}")
         if result.stderr:
             print(f"⚠️ LibreOffice stderr: {result.stderr}")
-        if result.stdout:
-            print(f"✅ LibreOffice stdout: {result.stdout}")
-        
-        # Find the generated PDF
-        pdf_filename = Path(docx_path).stem + '.pdf'
-        pdf_path = os.path.join(output_dir, pdf_filename)
-        
+
+        # Find generated PDF
+        pdf_filename = original_filename.replace('.docx', '.pdf').replace('.doc', '.pdf')
+        pdf_path = os.path.join(temp_dir, pdf_filename)
+
         if not os.path.exists(pdf_path):
-            raise FileNotFoundError(f"PDF not created at {pdf_path}")
+            # Sometimes LibreOffice changes the output filename
+            pdf_files = [f for f in os.listdir(temp_dir) if f.endswith('.pdf')]
+            if pdf_files:
+                pdf_path = os.path.join(temp_dir, pdf_files[0])
+            else:
+                raise Exception(f"PDF file not created in {temp_dir}")
+
+        # Read PDF
+        with open(pdf_path, 'rb') as f:
+            pdf_buffer = f.read()
         
-        print(f"✅ PDF created: {pdf_path}")
-        return pdf_path
+        print(f"✅ PDF created successfully: {len(pdf_buffer)} bytes")
+        return pdf_buffer
         
-    except subprocess.CalledProcessError as e:
-        print(f"❌ LibreOffice error: {e.stderr}")
-        raise Exception(f"LibreOffice conversion failed: {e.stderr}")
+    except subprocess.TimeoutExpired:
+        raise Exception("LibreOffice conversion timed out after 120 seconds")
     except Exception as e:
         print(f"❌ Conversion error: {str(e)}")
-        raise
+        raise Exception(f"PDF conversion failed: {str(e)}")
+    finally:
+        try:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            print(f"✅ Cleaned up temp directory: {temp_dir}")
+        except Exception as cleanup_error:
+            print(f"⚠️ Cleanup warning: {cleanup_error}")
 
 @app.route('/ping', methods=['GET', 'HEAD'])
 def ping():
@@ -121,7 +172,7 @@ def merge_first_syllabus():
 
 @app.route('/api/convert-docx-to-pdf', methods=['POST'])
 def convert_docx_to_pdf():
-    """Convert single DOCX file to PDF"""
+    """Convert single DOCX file to PDF (preserving original formatting)"""
     try:
         # Check if file is present
         if 'file' not in request.files:
@@ -135,27 +186,25 @@ def convert_docx_to_pdf():
         if not allowed_file(file.filename):
             return jsonify({'error': 'Only .docx and .doc files are allowed'}), 400
         
-        # Create temporary directory
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Save uploaded file
-            filename = secure_filename(file.filename)
-            docx_path = os.path.join(temp_dir, filename)
-            file.save(docx_path)
-            
-            print(f"📥 Received: {filename} ({os.path.getsize(docx_path) / 1024:.2f} KB)")
-            
-            # Convert to PDF
-            pdf_path = convert_docx_to_pdf_libreoffice(docx_path, temp_dir)
-            
-            # Read PDF and return
-            pdf_filename = filename.rsplit('.', 1)[0] + '.pdf'
-            
-            return send_file(
-                pdf_path,
-                mimetype='application/pdf',
-                as_attachment=True,
-                download_name=pdf_filename
-            )
+        filename = secure_filename(file.filename)
+        print(f"\n📥 Converting: {filename}")
+        
+        # Read file into buffer
+        docx_buffer = file.read()
+        print(f"📥 Received: {filename} ({len(docx_buffer) / 1024:.2f} KB)")
+        
+        # Convert to PDF
+        pdf_buffer = convert_docx_to_pdf_libreoffice(docx_buffer, filename)
+        
+        # Return PDF
+        pdf_filename = filename.replace('.docx', '.pdf').replace('.doc', '.pdf')
+        
+        return send_file(
+            io.BytesIO(pdf_buffer),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=pdf_filename
+        )
             
     except Exception as e:
         print(f"❌ Error: {str(e)}")
@@ -174,68 +223,68 @@ def convert_merge_pdfs():
         if len(files) == 0:
             return jsonify({'error': 'No files selected'}), 400
         
-        print(f"📥 Received {len(files)} files for conversion and merging")
+        print(f"\n📥 Converting and merging {len(files)} files")
         
-        # Create temporary directory
-        with tempfile.TemporaryDirectory() as temp_dir:
-            pdf_paths = []
+        pdf_buffers = []
+        
+        # Convert each DOCX to PDF
+        for idx, file in enumerate(files):
+            if not allowed_file(file.filename):
+                continue
             
-            # Convert each DOCX to PDF
-            for idx, file in enumerate(files):
-                if not allowed_file(file.filename):
-                    continue
-                
-                filename = secure_filename(file.filename)
-                docx_path = os.path.join(temp_dir, f"{idx}_{filename}")
-                file.save(docx_path)
-                
-                print(f"🔄 Converting {idx + 1}/{len(files)}: {filename}")
-                
-                # Convert to PDF
-                pdf_path = convert_docx_to_pdf_libreoffice(docx_path, temp_dir)
-                pdf_paths.append(pdf_path)
+            filename = secure_filename(file.filename)
+            print(f"🔄 Converting {idx + 1}/{len(files)}: {filename}")
             
-            if len(pdf_paths) == 0:
-                return jsonify({'error': 'No valid DOCX files to convert'}), 400
+            # Read file into buffer
+            docx_buffer = file.read()
             
-            # Merge PDFs using PyPDF2
-            try:
-                from PyPDF2 import PdfMerger
-                
-                print(f"📦 Merging {len(pdf_paths)} PDFs...")
-                merger = PdfMerger()
-                
-                for pdf_path in pdf_paths:
-                    merger.append(pdf_path)
-                
-                # Save merged PDF
-                merged_pdf_path = os.path.join(temp_dir, 'merged_curriculum.pdf')
-                merger.write(merged_pdf_path)
-                merger.close()
-                
-                print(f"✅ Merged PDF created: {merged_pdf_path}")
-                
-                return send_file(
-                    merged_pdf_path,
-                    mimetype='application/pdf',
-                    as_attachment=True,
-                    download_name='merged_curriculum.pdf'
-                )
-                
-            except ImportError:
-                # Fallback: return first PDF only if PyPDF2 not installed
-                print("⚠️ PyPDF2 not installed, returning first PDF only")
-                return send_file(
-                    pdf_paths[0],
-                    mimetype='application/pdf',
-                    as_attachment=True,
-                    download_name='curriculum.pdf'
-                )
+            # Convert to PDF
+            pdf_buffer = convert_docx_to_pdf_libreoffice(docx_buffer, filename)
+            pdf_buffers.append(pdf_buffer)
+        
+        if len(pdf_buffers) == 0:
+            return jsonify({'error': 'No valid DOCX files to convert'}), 400
+        
+        # Merge PDFs using PyPDF2
+        try:
+            from PyPDF2 import PdfMerger
+            
+            print(f"📦 Merging {len(pdf_buffers)} PDFs...")
+            merger = PdfMerger()
+            
+            for pdf_buffer in pdf_buffers:
+                merger.append(io.BytesIO(pdf_buffer))
+            
+            # Save merged PDF to buffer
+            merged_output = io.BytesIO()
+            merger.write(merged_output)
+            merger.close()
+            merged_output.seek(0)
+            
+            print(f"✅ Merge complete: {len(merged_output.getvalue())} bytes")
+            
+            return send_file(
+                merged_output,
+                mimetype='application/pdf',
+                as_attachment=True,
+                download_name='merged_curriculum.pdf'
+            )
+            
+        except ImportError:
+            # Fallback: return first PDF only if PyPDF2 not installed
+            print("⚠️ PyPDF2 not installed, returning first PDF only")
+            return send_file(
+                io.BytesIO(pdf_buffers[0]),
+                mimetype='application/pdf',
+                as_attachment=True,
+                download_name='curriculum.pdf'
+            )
             
     except Exception as e:
         print(f"❌ Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/pdf-health', methods=['GET'])
 @app.route('/api/pdf-health', methods=['GET'])
 def pdf_health():
     """Health check for PDF conversion service"""
@@ -243,16 +292,16 @@ def pdf_health():
     
     return jsonify({
         'status': 'healthy',
-        'service': 'PDF Conversion Service',
+        'service': 'PDF Conversion Service (Format-Preserving)',
         'libreOffice': libreoffice_status,
         'limits': {
             'maxFileSize': '50 MB',
             'maxFiles': 20,
             'timeout': '2 minutes',
             'allowedFormats': ['docx', 'doc']
-        }
+        },
+        'notes': 'Converts DOCX to PDF without modifying original formatting'
     }), 200
-
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)
