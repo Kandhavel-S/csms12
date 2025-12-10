@@ -1377,7 +1377,9 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         const formData = new FormData();
         formData.append('file', finalBlob, `${fileName}.docx`);
 
-        const response = await fetch('http://localhost:5001/api/convert-docx-to-pdf', {
+        // Use Render URL for production, localhost for development
+        const API_URL = process.env.NEXT_PUBLIC_PDF_API_URL || 'https://csmspy.onrender.com';
+        const response = await fetch(`${API_URL}/api/convert-docx-to-pdf`, {
           method: 'POST',
           body: formData,
         });
