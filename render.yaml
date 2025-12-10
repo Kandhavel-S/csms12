@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: csms-backend
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: singapore
+    branch: main
+    healthCheckPath: /ping
+    envVars:
+      - key: PORT
+        value: 5001
+      - key: MONGO_URI
+        sync: false
+    autoDeploy: true

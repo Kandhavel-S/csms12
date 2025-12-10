@@ -1368,11 +1368,33 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       });
 
+      // Send DOCX to Flask backend for PDF conversion
       const fileName = formFields.regulation && formFields.branchName
-        ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Curriculum.docx`
-        : 'Full_Curriculum.docx';
-      saveAs(finalBlob, fileName);
-      toast.success('✔️ Full Curriculum downloaded successfully');
+        ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Curriculum`
+        : 'Full_Curriculum';
+
+      try {
+        const formData = new FormData();
+        formData.append('file', finalBlob, `${fileName}.docx`);
+
+        const response = await fetch('http://localhost:5001/api/convert-docx-to-pdf', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`PDF conversion failed: ${response.statusText}`);
+        }
+
+        const pdfBlob = await response.blob();
+        saveAs(pdfBlob, `${fileName}.pdf`);
+        toast.success('✔️ Curriculum PDF generated successfully');
+      } catch (pdfError) {
+        console.error('PDF conversion error:', pdfError);
+        toast.error('❌ PDF conversion failed. Downloading DOCX instead...');
+        // Fallback: download DOCX
+        saveAs(finalBlob, `${fileName}.docx`);
+      }
     } catch (error) {
       console.error('Error generating curriculum:', error);
       toast.error('❌ Failed to generate document');
