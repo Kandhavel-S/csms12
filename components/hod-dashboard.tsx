@@ -148,14 +148,20 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [isLeaveCurriculumDialogOpen, setIsLeaveCurriculumDialogOpen] = useState(false);
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [courseCodeWarning, setCourseCodeWarning] = useState<string>("");
+  const [isUpdateTitleDialogOpen, setIsUpdateTitleDialogOpen] = useState(false);
+  const [titleUpdateInfo, setTitleUpdateInfo] = useState<{
+    oldTitle: string;
+    newTitle: string;
+    courseCode: string;
+  } | null>(null);
 
 
 
   useEffect(() => {
     const fetchDropdownUsers = async () => {
       const [facultyRes, expertRes] = await Promise.all([
-        fetch("https://csms-x9aw.onrender.com/api/auth/by-role?role=faculty"),
-        fetch("https://csms-x9aw.onrender.com/api/auth/by-role?role=subject-expert"),
+        fetch("http://localhost:5000/api/auth/by-role?role=faculty"),
+        fetch("http://localhost:5000/api/auth/by-role?role=subject-expert"),
       ]);
 
       const facultyNames = await facultyRes.json();
@@ -179,7 +185,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   
   const fetchSubjects = async () => {
     try {
-      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/get-subjects?department=${user.department}`);
+      const res = await fetch(`http://localhost:5000/api/auth/get-subjects?department=${user.department}`);
       const data = await res.json();
       setSubjects(data);
       console.log("📦 Subjects fetched:", data);
@@ -198,7 +204,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         throw new Error("Authentication required. Please log in again.");
       }
 
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations", {
+      const res = await fetch("http://localhost:5000/api/auth/hod/regulations", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -299,7 +305,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
       }
 
       // Create the regulation with version 1
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations/save-draft", {
+      const res = await fetch("http://localhost:5000/api/auth/hod/regulations/save-draft", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -355,7 +361,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         throw new Error("Authentication required. Please log in again.");
       }
 
-      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/hod/regulation-version/${versionId}`, {
+      const res = await fetch(`http://localhost:5000/api/auth/hod/regulation-version/${versionId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -399,30 +405,53 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     setNewSubjectCode(code);
     setCourseCodeWarning(""); // Clear previous warning
 
+    console.log("=== handleCourseCodeChange called ===");
+    console.log("Course code entered:", code);
+
     if (!code.trim()) {
       setNewSubjectName(""); // Clear title if course code is empty
+      console.log("Code is empty, clearing title");
       return;
     }
     
-    if (!selectedRegulationForSubject) return;
+    // Use either selectedRegulationForSubject or selectedRegulationId
+    const regulationIdToUse = selectedRegulationForSubject || selectedRegulationId;
+    
+    if (!regulationIdToUse) {
+      console.log("No regulation selected");
+      return;
+    }
+
+    console.log("Using regulation ID:", regulationIdToUse);
 
     try {
       // Get the regulation code for comparison
-      const selectedReg = regulations.find(r => r.versions[0]?._id === selectedRegulationForSubject);
+      const selectedReg = regulations.find(r => r.versions[0]?._id === regulationIdToUse);
       const regCode = selectedReg?.regulationCode;
       
-      if (!regCode) return;
+      console.log("Selected regulation:", selectedReg);
+      console.log("Regulation code:", regCode);
+      
+      if (!regCode) {
+        console.log("No regulation code found");
+        return;
+      }
 
       // Fetch all subjects (no filter) to check across departments
       const res = await fetch(
-        `https://csms-x9aw.onrender.com/api/auth/get-subjects`
+        `http://localhost:5000/api/auth/get-subjects`
       );
       const allSubjects = await res.json();
+      
+      console.log("All subjects fetched:", allSubjects.length);
       
       // Filter by regulation code (string comparison)
       const existingSubjects = allSubjects.filter(
         (s: Subject) => s.regulationCode === regCode
       );
+      
+      console.log("Subjects in same regulation:", existingSubjects.length);
+      console.log("Existing subjects:", existingSubjects);
       
       const existingInSameDept = existingSubjects.find(
         (s: Subject) => s.code === code.trim() && s.department === user.department
@@ -432,15 +461,22 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         (s: Subject) => s.code === code.trim() && s.department !== user.department
       );
 
+      console.log("Existing in same dept:", existingInSameDept);
+      console.log("Existing in other dept:", existingInOtherDept);
+      console.log("User department:", user.department);
+
       if (existingInSameDept) {
+        console.log("Found duplicate in same department");
         setCourseCodeWarning(`⚠️ Course code "${code}" already exists in this department for this regulation.`);
         setNewSubjectName(""); // Clear title for duplicate in same department
       } else if (existingInOtherDept) {
         // Auto-fill the title from the other department
+        console.log("Found in other department, auto-filling title:", existingInOtherDept.title);
         setNewSubjectName(existingInOtherDept.title);
         setCourseCodeWarning(`ℹ️ Course code "${code}" exists in ${existingInOtherDept.department} department. Title auto-filled. Same title is required for cross-department courses.`);
       } else {
         // Clear title if no existing course found
+        console.log("No existing course found, clearing title");
         setNewSubjectName("");
       }
     } catch (error) {
@@ -466,7 +502,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
       
       // Fetch all subjects to check across departments
       const checkRes = await fetch(
-        `https://csms-x9aw.onrender.com/api/auth/get-subjects`
+        `http://localhost:5000/api/auth/get-subjects`
       );
       const allSubjects = await checkRes.json();
       
@@ -491,11 +527,15 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         return;
       }
       
-      // If course code exists in another department, title MUST match
+      // If course code exists in another department and title was changed, update all
       if (existingInOtherDept && existingInOtherDept.title !== newSubjectName.trim()) {
-        toast.error(
-          `Course code "${newSubjectCode}" exists in ${existingInOtherDept.department} department with title "${existingInOtherDept.title}". To use the same course code across departments, the title must match exactly.`
-        );
+        // User has modified the auto-filled title - show confirmation dialog
+        setTitleUpdateInfo({
+          oldTitle: existingInOtherDept.title,
+          newTitle: newSubjectName.trim(),
+          courseCode: newSubjectCode
+        });
+        setIsUpdateTitleDialogOpen(true);
         return;
       }
 
@@ -525,7 +565,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
 
       console.log("Sending request body:", requestBody);
 
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/add-subject", {
+      const res = await fetch("http://localhost:5000/api/auth/add-subject", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
@@ -560,6 +600,57 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   }
 };
 
+const handleConfirmTitleUpdate = async () => {
+  if (!titleUpdateInfo) return;
+
+  try {
+    const regulationId = selectedRegulationForSubject || selectedRegulationId;
+    const selectedReg = regulations.find(r => r.versions[0]?._id === regulationId);
+    const regCode = selectedReg?.regulationCode;
+
+    if (!regCode) {
+      toast.error("Could not find regulation code");
+      setIsUpdateTitleDialogOpen(false);
+      return;
+    }
+
+    // Update all subjects with this course code in this regulation
+    const updateRes = await fetch("http://localhost:5000/api/auth/update-course-titles", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        courseCode: titleUpdateInfo.courseCode.trim(),
+        regulationCode: regCode,
+        newTitle: titleUpdateInfo.newTitle
+      }),
+    });
+    
+    if (!updateRes.ok) {
+      const errorData = await updateRes.json();
+      throw new Error(errorData.error || "Failed to update titles");
+    }
+    
+    toast.success(`Updated title for all subjects with course code "${titleUpdateInfo.courseCode}" in this regulation`);
+    
+    // Close dialog and proceed with adding the subject
+    setIsUpdateTitleDialogOpen(false);
+    setTitleUpdateInfo(null);
+    
+    // Now add the subject by calling handleAddSubject again
+    // The check will pass since titles now match
+    handleAddSubject();
+  } catch (error: any) {
+    toast.error(`Failed to update existing titles: ${error.message}`);
+    setIsUpdateTitleDialogOpen(false);
+    setTitleUpdateInfo(null);
+  }
+};
+
+const handleCancelTitleUpdate = () => {
+  setIsUpdateTitleDialogOpen(false);
+  setTitleUpdateInfo(null);
+};
+
 
 
   const handleAssignFaculty = (subjectId: string) => {
@@ -576,7 +667,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     if (!selectedSubjectId || !selectedFaculty) return;
 
     try {
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/update-fac-exp", {
+      const res = await fetch("http://localhost:5000/api/auth/update-fac-exp", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -603,7 +694,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     if (!selectedSubjectId || !selectedExpert) return;
 
     try {
-      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/update-fac-exp", {
+      const res = await fetch("http://localhost:5000/api/auth/update-fac-exp", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -642,7 +733,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   if (!selectedSubjectId) return;
 
   try {
-    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/edit-subjects/${selectedSubjectId}`, {
+    const res = await fetch(`http://localhost:5000/api/auth/edit-subjects/${selectedSubjectId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -688,7 +779,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
           throw new Error("No token found. Please log in again.");
         }
 
-        const res = await fetch("https://csms-x9aw.onrender.com/api/auth/assign-faculty", {
+        const res = await fetch("http://localhost:5000/api/auth/assign-faculty", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -725,7 +816,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
 
     const handleApprove = async (subjectId: string) => {
   try {
-    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/subject/${subjectId}/approve`, {
+    const res = await fetch(`http://localhost:5000/api/auth/subject/${subjectId}/approve`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
     });
@@ -751,7 +842,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
 
 const handleReject = async (subjectId: string) => {
   try {
-    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/subject/${subjectId}/reject`, {
+    const res = await fetch(`http://localhost:5000/api/auth/subject/${subjectId}/reject`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
     });
@@ -779,7 +870,7 @@ const handleDeleteSubject = async () => {
 
   try {
     const token = localStorage.getItem("token");
-    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/delete-subject/${subjectToDelete.id}`, {
+    const res = await fetch(`http://localhost:5000/api/auth/delete-subject/${subjectToDelete.id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -813,7 +904,7 @@ const handleDeleteRegulation = async () => {
   try {
     const token = localStorage.getItem("token");
     const res = await fetch(
-      `https://csms-x9aw.onrender.com/api/auth/regulations/${regulationToDelete.regulationCode}`,
+      `http://localhost:5000/api/auth/regulations/${regulationToDelete.regulationCode}`,
       {
         method: "DELETE",
         headers: {
@@ -853,7 +944,7 @@ const handleRenameRegulation = async () => {
   try {
     const token = localStorage.getItem("token");
     const res = await fetch(
-      `https://csms-x9aw.onrender.com/api/auth/regulations/${regulationToRename.regulationCode}/rename`,
+      `http://localhost:5000/api/auth/regulations/${regulationToRename.regulationCode}/rename`,
       {
         method: "PUT",
         headers: {
@@ -1090,7 +1181,7 @@ const handleLeaveWithoutSaving = () => {
           
           setIsSavingOrder(true);
           try {
-            const response = await fetch('https://csms-x9aw.onrender.com/api/auth/update-subject-order', {
+            const response = await fetch('http://localhost:5000/api/auth/update-subject-order', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -1236,7 +1327,7 @@ const handleLeaveWithoutSaving = () => {
                           onClick={async () => {
                             setCreating(true);
                             try {
-                              const res = await fetch("https://csms-x9aw.onrender.com/api/auth/assign-expert", {
+                              const res = await fetch("http://localhost:5000/api/auth/assign-expert", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
@@ -1477,7 +1568,9 @@ const handleLeaveWithoutSaving = () => {
                       placeholder="Enter subject code (e.g., CS101)"
                     />
                     {courseCodeWarning && (
-                      <p className="text-sm text-red-600 mt-1">{courseCodeWarning}</p>
+                      <p className={`text-sm mt-1 ${
+                        courseCodeWarning.startsWith('ℹ️') ? 'text-green-600' : 'text-red-600'
+                      }`}>{courseCodeWarning}</p>
                     )}
                   </div>
                   <div>
@@ -1769,6 +1862,28 @@ const handleLeaveWithoutSaving = () => {
               </DialogContent>
             </Dialog>
 
+            {/* Update Title Confirmation Dialog */}
+            <AlertDialog open={isUpdateTitleDialogOpen} onOpenChange={setIsUpdateTitleDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Update Course Title?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    You&apos;ve changed the title from &quot;{titleUpdateInfo?.oldTitle}&quot; to &quot;{titleUpdateInfo?.newTitle}&quot;.
+                    <br /><br />
+                    This will update the title for all subjects with course code &quot;{titleUpdateInfo?.courseCode}&quot; across all departments in this regulation.
+                    <br /><br />
+                    Do you want to proceed?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={handleCancelTitleUpdate}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleConfirmTitleUpdate} className="bg-purple-600 hover:bg-purple-700">
+                    Update All Titles
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
           </Card>
         )
 
@@ -1925,7 +2040,7 @@ const handleLeaveWithoutSaving = () => {
                             <TableCell className="flex flex-wrap gap-2">
                         {subject.syllabusUrl && (
                           <a
-                            href={`https://csms-x9aw.onrender.com/api/auth/file/${subject.syllabusUrl}`}
+                            href={`http://localhost:5000/api/auth/file/${subject.syllabusUrl}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             download
@@ -2135,7 +2250,7 @@ const handleLeaveWithoutSaving = () => {
                               </div>
                               {version.curriculumUrl && (
                                 <a
-                                  href={`https://csms-x9aw.onrender.com/api/auth/file/${version.curriculumUrl}`}
+                                  href={`http://localhost:5000/api/auth/file/${version.curriculumUrl}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >

@@ -63,6 +63,38 @@ router.put("/update-fac-exp", updateSubjectAssignments);
 router.put("/edit-subjects/:id", updateSubject);
 router.delete("/delete-subject/:id", protect, deleteSubject);
 
+// Update course titles for all subjects with same course code in same regulation
+router.put("/update-course-titles", async (req, res) => {
+  try {
+    const { courseCode, regulationCode, newTitle } = req.body;
+    
+    if (!courseCode || !regulationCode || !newTitle) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Update all subjects with this course code and regulation code
+    const result = await Subject.updateMany(
+      { 
+        code: courseCode.trim(),
+        regulationCode: regulationCode.trim()
+      },
+      { 
+        title: newTitle.trim()
+      }
+    );
+
+    console.log(`Updated ${result.modifiedCount} subjects with course code ${courseCode} in regulation ${regulationCode}`);
+    
+    res.json({ 
+      message: "Course titles updated successfully",
+      modifiedCount: result.modifiedCount
+    });
+  } catch (err) {
+    console.error("Error updating course titles:", err);
+    res.status(500).json({ error: "Failed to update course titles" });
+  }
+});
+
 // Update subject order after drag and drop
 router.put("/update-subject-order", async (req, res) => {
   try {

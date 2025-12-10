@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: 'https://csms-x9aw.onrender.com/api', // or your deployed backend URL
+  baseURL: 'http://localhost:5000/api', // or your deployed backend URL
 });
 
 // Automatically attach token if available
