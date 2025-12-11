@@ -2,11 +2,10 @@ FROM node:18-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install LibreOffice (for headless conversion), Java runtime for javaldx, and other utilities
+# Install LibreOffice (for headless conversion) and other utilities
 RUN apt-get update \
    && apt-get install -y --no-install-recommends \
      libreoffice \
-     openjdk-11-jre-headless \
      wget \
      ca-certificates \
      ghostscript \
