@@ -43,6 +43,40 @@ exports.login = async (req, res) => {
 };
 
 
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    if (!newPassword) {
+      return res.status(400).json({ error: 'New password is required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+       return res.status(200).json({ message: 'Password updated successfully' });
+    }
+
+    // Hash the new password provided by user
+    
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({ message: 'Password updated successfully' });
+
+  } catch (err) {
+    console.error("Forgot password error:", err.message);
+    res.status(500).json({ error: err.message || 'Server error' });
+  }
+};
+
 
 
 exports.assignFaculty = async (req, res) => {
@@ -155,7 +189,8 @@ exports.addSubject = async (req,res) => {
       displayOrder: displayOrder || 0,
       courseType: courseType || "",
       subjectType: subjectType || "",
-      ltpcCode: ltpcCode || ""
+      ltpcCode: ltpcCode || "",
+      lastUpdated: new Date()
     });
     
     console.log("New subject before save:", newSubject);

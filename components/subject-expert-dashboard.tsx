@@ -28,6 +28,8 @@ interface SubjectItem {
   title: string
   assignedFaculty: string
   facultyName: string
+  hodName?: string
+  department?: string
   lastUpdated?: string
   status: string
   syllabusFile?: string
@@ -46,6 +48,8 @@ export default function SubjectExpertDashboard({ user }: SubjectExpertDashboardP
   const [selectedSyllabusId, setSelectedSyllabusId] = useState<string | null>(null)
   const [regulationFilter, setRegulationFilter] = useState<string>("all")
   const [semesterFilter, setSemesterFilter] = useState<string>("all")
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
   const [reviews, setReviews] = useState<SubjectItem[]>([])
 
   const fetchAssignedSubjects = async () => {
@@ -66,6 +70,8 @@ export default function SubjectExpertDashboard({ user }: SubjectExpertDashboardP
           title: item.title,
           assignedFaculty: item.assignedFaculty,
           facultyName: item.facultyName,
+          hodName: item.hodName,
+          department: item.department,
           lastUpdated: item.lastUpdated,
           status: item.status,
           syllabusFile: item.syllabusUrl,
@@ -261,8 +267,8 @@ const renderContent = () => {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="mb-6 flex gap-4 items-end">
-            <div className="flex-1">
+          <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
               <Label htmlFor="regulation-filter">Filter by Regulation</Label>
               <Select
                 value={regulationFilter}
@@ -280,7 +286,7 @@ const renderContent = () => {
               </Select>
             </div>
 
-            <div className="flex-1">
+            <div>
               <Label htmlFor="semester-filter">Filter by Semester</Label>
               <Select
                 value={semesterFilter}
@@ -298,18 +304,59 @@ const renderContent = () => {
               </Select>
             </div>
 
-            {(regulationFilter !== "all" || semesterFilter !== "all") && (
+            <div>
+              <Label htmlFor="department-filter">Filter by Department</Label>
+              <Select
+                value={departmentFilter}
+                onValueChange={setDepartmentFilter}
+              >
+                <SelectTrigger id="department-filter">
+                  <SelectValue placeholder="All Departments" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Departments</SelectItem>
+                  {Array.from(new Set(reviews.map(r => r.department).filter(Boolean))).map((dept) => (
+                    <SelectItem key={dept} value={dept as string}>{dept}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="status-filter">Filter by Status</Label>
+              <Select
+                value={statusFilter}
+                onValueChange={setStatusFilter}
+              >
+                <SelectTrigger id="status-filter">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="Draft">Draft</SelectItem>
+                  <SelectItem value="Sent to HOD">Sent to HOD</SelectItem>
+                  <SelectItem value="Approved">Approved</SelectItem>
+                  <SelectItem value="Rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {(regulationFilter !== "all" || semesterFilter !== "all" || departmentFilter !== "all" || statusFilter !== "all") && (
+            <div className="mb-4">
               <Button
                 variant="outline"
                 onClick={() => {
                   setRegulationFilter("all");
                   setSemesterFilter("all");
+                  setDepartmentFilter("all");
+                  setStatusFilter("all");
                 }}
               >
-                Clear Filters
+                Clear All Filters
               </Button>
-            )}
-          </div>
+            </div>
+          )}
 
           <Table>
             <TableHeader>
@@ -318,7 +365,8 @@ const renderContent = () => {
                 <TableHead>Subject</TableHead>
                 <TableHead>Regulation</TableHead>
                 <TableHead>Semester</TableHead>
-                <TableHead>Faculty</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>HOD</TableHead>
                 <TableHead>Last Updated</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
@@ -333,7 +381,19 @@ const renderContent = () => {
                   if (semesterFilter && semesterFilter !== "all") {
                     if (review.semester?.toString() !== semesterFilter) return false;
                   }
+                  if (departmentFilter && departmentFilter !== "all") {
+                    if (review.department !== departmentFilter) return false;
+                  }
+                  if (statusFilter && statusFilter !== "all") {
+                    if (review.status !== statusFilter) return false;
+                  }
                   return true;
+                })
+                .sort((a, b) => {
+                  // Sort by lastUpdated in descending order (newest first)
+                  const dateA = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+                  const dateB = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
+                  return dateB - dateA;
                 })
                 .map((review) => (
                 <TableRow key={review._id}>
@@ -349,7 +409,12 @@ const renderContent = () => {
                       Sem {review.semester || "N/A"}
                     </Badge>
                   </TableCell>
-                  <TableCell>{review.facultyName}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="font-semibold">
+                      {review.department || "N/A"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{review.hodName || "N/A"}</TableCell>
                   <TableCell>{review.lastUpdated ? new Date(review.lastUpdated).toLocaleString() : "—"}</TableCell>
                   <TableCell>
                     <Badge className={getStatusColor(review.status)}>{review.status}</Badge>

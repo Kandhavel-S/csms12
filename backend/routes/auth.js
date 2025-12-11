@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { login, assignFaculty, assignHOD, getUsersByRole, addSubject, getSubjects, updateSubjectAssignments, updateSubject, getNotifications, markReadNot, deleteSubject} = require('../controllers/auth');
+const { login, forgotPassword, assignFaculty, assignHOD, getUsersByRole, addSubject, getSubjects, updateSubjectAssignments, updateSubject, getNotifications, markReadNot, deleteSubject} = require('../controllers/auth');
 const { protect, authorize } = require('../middleware/auth');
 const Notification = require('../models/notification')
 const User = require('../models/users');
@@ -34,6 +34,7 @@ const {
 
 
 router.post('/login', login);
+router.post('/forgot-password', forgotPassword);
 
 router.post('/assign-hod', protect, authorize('superuser'), assignHOD);
 router.post('/assign-faculty', protect, authorize('hod'), assignFaculty);
@@ -245,13 +246,21 @@ router.get("/expert-subjects/:expertId", async (req, res) => {
   try {
     const subjects = await Subject.find({ assignedExpert: req.params.expertId });
 
-    // Populate faculty name if needed
+    // Populate faculty name and HOD name
     const enriched = await Promise.all(
       subjects.map(async (subj) => {
         const faculty = await User.findById(subj.assignedFaculty).select("name");
+        
+        // Find HOD for this subject's department
+        const hod = await User.findOne({ 
+          department: subj.department, 
+          role: { $in: ["hod"] } 
+        }).select("name");
+        
         return {
           ...subj._doc,
           facultyName: faculty?.name || "N/A",
+          hodName: hod?.name || "N/A",
         };
       })
     );
@@ -264,21 +273,48 @@ router.get("/expert-subjects/:expertId", async (req, res) => {
 
 // routes/auth.js
 router.put("/send-to-hod", async (req, res) => {
-  const { subjectId, fileId } = req.body;
+  try {
+    const { subjectId, fileId } = req.body;
 
+    console.log("Incoming subjectId:", subjectId);
+    console.log("Incoming fileId:", fileId);
+
+    // Update the current subject
     const updated = await Subject.findByIdAndUpdate(subjectId, {
       syllabusUrl: fileId,
       status: "Sent to HOD",
       updatedAt: new Date()
     }, { new: true });
 
-    console.log("Incoming subjectId:", subjectId);
-    console.log("Incoming fileId:", fileId);
-
-
     if (!updated) return res.status(404).json({ error: "Subject not found" });
 
+    // Find all subjects with the same title and regulationCode across all departments
+    const { title, regulationCode } = updated;
+    
+    if (title && regulationCode) {
+      // Update all matching subjects with the same syllabus file
+      const updateResult = await Subject.updateMany(
+        {
+          title: title,
+          regulationCode: regulationCode,
+          _id: { $ne: subjectId } // Exclude the current subject (already updated)
+        },
+        {
+          $set: {
+            syllabusUrl: fileId,
+            updatedAt: new Date()
+          }
+        }
+      );
+      
+      console.log(`Updated ${updateResult.modifiedCount} additional subjects with the same course title across departments`);
+    }
+
     res.json({ message: "File linked", subject: updated });
+  } catch (err) {
+    console.error("Error in send-to-hod:", err);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 
@@ -319,6 +355,28 @@ router.put("/subject/:id/approve", async (req, res) => {
     subject.feedback = "";
 
     await subject.save();
+
+    // Update all subjects with the same title and regulationCode across all departments
+    const { title, regulationCode } = subject;
+    
+    if (title && regulationCode) {
+      const updateResult = await Subject.updateMany(
+        {
+          title: title,
+          regulationCode: regulationCode,
+          _id: { $ne: id } // Exclude the current subject (already updated)
+        },
+        {
+          $set: {
+            status: "Approved",
+            lastUpdated: new Date(),
+            feedback: ""
+          }
+        }
+      );
+      
+      console.log(`Approved ${updateResult.modifiedCount} additional subjects with the same title across departments`);
+    }
 
     // Notify faculty
     const notification = new Notification({

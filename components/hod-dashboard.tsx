@@ -10,7 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, BookOpen, FileText, Download, TrendingUp, Edit, History, RefreshCcw, Loader2, Trash2, Pencil } from "lucide-react"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Check, ChevronsUpDown } from "lucide-react"
+import { Plus, BookOpen, FileText, Download, TrendingUp, Edit, History, RefreshCcw, Loader2, Trash2, Pencil, Eye, EyeOff } from "lucide-react"
 import DashboardLayout from "./dashboard-layout"
 import CreateCurriculum from "./curriculum/create-curriculum"
 import toast from "react-hot-toast"
@@ -129,6 +132,8 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [selectedExpert, setSelectedExpert] = useState<string | null>(null);
   const [trackerRegulationFilter, setTrackerRegulationFilter] = useState<string>("all");
   const [trackerSemesterFilter, setTrackerSemesterFilter] = useState<string>("all");
+  const [trackerStatusFilter, setTrackerStatusFilter] = useState<string>("all");
+  const [trackerExpertFilter, setTrackerExpertFilter] = useState<string>("all");
   const [regulations, setRegulations] = useState<RegulationSummary[]>([]);
   const [regulationsLoading, setRegulationsLoading] = useState(false);
   const [regulationsError, setRegulationsError] = useState<string | null>(null);
@@ -147,7 +152,11 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [hasUnsavedCurriculumChanges, setHasUnsavedCurriculumChanges] = useState(false);
   const [isLeaveCurriculumDialogOpen, setIsLeaveCurriculumDialogOpen] = useState(false);
   const [pendingTab, setPendingTab] = useState<string | null>(null);
-  const [courseCodeWarning, setCourseCodeWarning] = useState<string>("");
+  const [courseCodeWarning, setCourseCodeWarning] = useState<string>("")
+  const [showFacultyPassword, setShowFacultyPassword] = useState(false)
+  const [showExpertPassword, setShowExpertPassword] = useState(false)
+  const [facultyPopoverOpen, setFacultyPopoverOpen] = useState(false)
+  const [expertPopoverOpen, setExpertPopoverOpen] = useState(false);
   const [isUpdateTitleDialogOpen, setIsUpdateTitleDialogOpen] = useState(false);
   const [titleUpdateInfo, setTitleUpdateInfo] = useState<{
     oldTitle: string;
@@ -1267,12 +1276,22 @@ const handleLeaveWithoutSaving = () => {
                         </div>
                         <div>
                           <Label>Password</Label>
-                          <Input
-                            type="password"
-                            value={facultyForm.password}
-                            onChange={(e) => setFacultyForm({ ...facultyForm, password: e.target.value })}
-                            placeholder="Enter password"
-                          />
+                          <div className="relative">
+                            <Input
+                              type={showFacultyPassword ? "text" : "password"}
+                              value={facultyForm.password}
+                              onChange={(e) => setFacultyForm({ ...facultyForm, password: e.target.value })}
+                              placeholder="Enter password"
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowFacultyPassword(!showFacultyPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            >
+                              {showFacultyPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
                         </div>
                         <Button
                           className="w-full bg-purple-600 hover:bg-purple-700"
@@ -1314,12 +1333,22 @@ const handleLeaveWithoutSaving = () => {
                         </div>
                         <div>
                           <Label>Password</Label>
-                          <Input
-                            type="password"
-                            value={expertForm.password}
-                            onChange={(e) => setexpertForm({ ...expertForm, password: e.target.value })}
-                            placeholder="Enter password"
-                          />
+                          <div className="relative">
+                            <Input
+                              type={showExpertPassword ? "text" : "password"}
+                              value={expertForm.password}
+                              onChange={(e) => setexpertForm({ ...expertForm, password: e.target.value })}
+                              placeholder="Enter password"
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowExpertPassword(!showExpertPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            >
+                              {showExpertPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
                         </div>
                         <Button
                           className="w-full bg-purple-600 hover:bg-purple-700"
@@ -1782,19 +1811,48 @@ const handleLeaveWithoutSaving = () => {
                 <div className="space-y-4">
                   <div>
                     <Label>Select Faculty</Label>
-                    
-                    <Select value={selectedFaculty ?? ""} onValueChange={(val) => setSelectedFaculty(val)}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Choose a faculty member" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {facultyList.map((f) => (
-                          <SelectItem key={f._id} value={f._id}>
-                            {f.name} ({f.email})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={facultyPopoverOpen} onOpenChange={setFacultyPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={facultyPopoverOpen}
+                          className="w-full justify-between"
+                        >
+                          {selectedFaculty
+                            ? facultyList.find((f) => f._id === selectedFaculty)?.name + " (" + facultyList.find((f) => f._id === selectedFaculty)?.email + ")"
+                            : "Choose a faculty member"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0">
+                        <Command>
+                          <CommandInput placeholder="Search faculty..." />
+                          <CommandList>
+                            <CommandEmpty>No faculty found.</CommandEmpty>
+                            <CommandGroup>
+                              {facultyList.map((f) => (
+                                <CommandItem
+                                  key={f._id}
+                                  value={`${f.name} ${f.email}`}
+                                  onSelect={() => {
+                                    setSelectedFaculty(f._id)
+                                    setFacultyPopoverOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={`mr-2 h-4 w-4 ${
+                                      selectedFaculty === f._id ? "opacity-100" : "opacity-0"
+                                    }`}
+                                  />
+                                  {f.name} ({f.email})
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <Button onClick={handleSaveFaculty} className="w-full bg-purple-600 hover:bg-purple-700">
                     Assign Faculty
@@ -1813,18 +1871,48 @@ const handleLeaveWithoutSaving = () => {
                 <div className="space-y-4">
                   <div>
                     <Label>Select Expert</Label>
-                    <Select value={selectedExpert ?? ""} onValueChange={(val) => setSelectedExpert(val)}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Choose a subject expert" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {expertList.map((e) => (
-                          <SelectItem key={e._id} value={e._id}>
-                            {e.name} ({e.email})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={expertPopoverOpen} onOpenChange={setExpertPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={expertPopoverOpen}
+                          className="w-full justify-between"
+                        >
+                          {selectedExpert
+                            ? expertList.find((e) => e._id === selectedExpert)?.name + " (" + expertList.find((e) => e._id === selectedExpert)?.email + ")"
+                            : "Choose a subject expert"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0">
+                        <Command>
+                          <CommandInput placeholder="Search expert..." />
+                          <CommandList>
+                            <CommandEmpty>No expert found.</CommandEmpty>
+                            <CommandGroup>
+                              {expertList.map((e) => (
+                                <CommandItem
+                                  key={e._id}
+                                  value={`${e.name} ${e.email}`}
+                                  onSelect={() => {
+                                    setSelectedExpert(e._id)
+                                    setExpertPopoverOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={`mr-2 h-4 w-4 ${
+                                      selectedExpert === e._id ? "opacity-100" : "opacity-0"
+                                    }`}
+                                  />
+                                  {e.name} ({e.email})
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <Button onClick={handleSaveExpert} className="w-full bg-purple-600 hover:bg-purple-700">
                     Assign Expert
@@ -1912,6 +2000,20 @@ const handleLeaveWithoutSaving = () => {
             }
           }
 
+          // Filter by status
+          if (trackerStatusFilter && trackerStatusFilter !== "all") {
+            if (subject.status !== trackerStatusFilter) {
+              return false;
+            }
+          }
+
+          // Filter by expert
+          if (trackerExpertFilter && trackerExpertFilter !== "all") {
+            if (getExpertNameById(subject.assignedExpert) !== trackerExpertFilter) {
+              return false;
+            }
+          }
+
           return true;
         });
 
@@ -1926,8 +2028,8 @@ const handleLeaveWithoutSaving = () => {
             </CardHeader>
             <CardContent>
               {/* Filters */}
-              <div className="mb-6 flex gap-4 items-end">
-                <div className="flex-1">
+              <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
                   <Label htmlFor="tracker-regulation-filter">Filter by Regulation</Label>
                   <Select
                     value={trackerRegulationFilter}
@@ -1947,7 +2049,7 @@ const handleLeaveWithoutSaving = () => {
                   </Select>
                 </div>
 
-                <div className="flex-1">
+                <div>
                   <Label htmlFor="tracker-semester-filter">Filter by Semester</Label>
                   <Select
                     value={trackerSemesterFilter}
@@ -1967,18 +2069,59 @@ const handleLeaveWithoutSaving = () => {
                   </Select>
                 </div>
 
-                {(trackerRegulationFilter !== "all" || trackerSemesterFilter !== "all") && (
+                <div>
+                  <Label htmlFor="tracker-status-filter">Filter by Status</Label>
+                  <Select
+                    value={trackerStatusFilter}
+                    onValueChange={setTrackerStatusFilter}
+                  >
+                    <SelectTrigger id="tracker-status-filter">
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="Draft">Draft</SelectItem>
+                      <SelectItem value="Sent to HOD">Sent to HOD</SelectItem>
+                      <SelectItem value="Approved">Approved</SelectItem>
+                      <SelectItem value="Rejected">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="tracker-expert-filter">Filter by Expert</Label>
+                  <Select
+                    value={trackerExpertFilter}
+                    onValueChange={setTrackerExpertFilter}
+                  >
+                    <SelectTrigger id="tracker-expert-filter">
+                      <SelectValue placeholder="All Experts" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Experts</SelectItem>
+                      {Array.from(new Set(subjects.map(s => getExpertNameById(s.assignedExpert)).filter(Boolean))).map((expert) => (
+                        <SelectItem key={expert} value={expert as string}>{expert}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {(trackerRegulationFilter !== "all" || trackerSemesterFilter !== "all" || trackerStatusFilter !== "all" || trackerExpertFilter !== "all") && (
+                <div className="mb-4">
                   <Button
                     variant="outline"
                     onClick={() => {
                       setTrackerRegulationFilter("all");
                       setTrackerSemesterFilter("all");
+                      setTrackerStatusFilter("all");
+                      setTrackerExpertFilter("all");
                     }}
                   >
-                    Clear Filters
+                    Clear All Filters
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
 
               <div className="rounded-md border">
                 <Table>
@@ -2002,7 +2145,14 @@ const handleLeaveWithoutSaving = () => {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredTrackerSubjects.map((subject) => {
+                      filteredTrackerSubjects
+                        .sort((a, b) => {
+                          // Sort by lastUpdated in descending order (newest first)
+                          const dateA = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+                          const dateB = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
+                          return dateB - dateA;
+                        })
+                        .map((subject) => {
                         const subjectRegulationId = 
                           typeof subject.regulationId === "string"
                             ? subject.regulationId
