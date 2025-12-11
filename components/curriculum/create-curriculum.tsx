@@ -1399,7 +1399,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       }
     } catch (error) {
       console.error('Error generating curriculum:', error);
-      toast.error('❌ Failed to generate document');
+      toast.error('❌ Failed to generate PDF: ' + (error instanceof Error ? error.message : 'Unknown'));
     } finally {
       setIsGenerating(false);
     }
