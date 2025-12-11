@@ -1360,52 +1360,19 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         toast.error('No DOCX syllabus files found. Only DOCX files can be merged. PDFs were skipped.');
       }
 
-      // Create and download MAIN curriculum (template + electives/appendices)
-      try {
-        const mainMerger = new DocxMerger();
-        await mainMerger.merge([buffer1, buffer2]);
-        const mainBuffer = await mainMerger.save();
-        const mainBlob = new Blob([mainBuffer], {
-          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        });
+      const merger = new DocxMerger();
+      await merger.merge([buffer1, buffer2, ...syllabusBuffers]);
+      const finalBuffer = await merger.save();
 
-        const mainFileName = formFields.regulation && formFields.branchName
-          ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Curriculum.docx`
-          : 'Main_Curriculum.docx';
-        saveAs(mainBlob, mainFileName);
-        toast.success('✔️ Main curriculum downloaded');
-      } catch (err) {
-        console.error('Failed to generate main curriculum:', err);
-        toast.error('Failed to generate main curriculum');
-      }
+      const finalBlob = new Blob([finalBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      });
 
-      // Create and download MERGED syllabi (only syllabus DOCX files)
-      try {
-        if (syllabusBuffers.length > 0) {
-          const syllabusMerger = new DocxMerger();
-          await syllabusMerger.merge(syllabusBuffers);
-          const mergedSyllabusBuffer = await syllabusMerger.save();
-          const mergedSyllabusBlob = new Blob([mergedSyllabusBuffer], {
-            type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          });
-          const syllabusFileName = formFields.regulation && formFields.branchName
-            ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Syllabi.docx`
-            : 'Merged_Syllabi.docx';
-          saveAs(mergedSyllabusBlob, syllabusFileName);
-          toast.success('✔️ Merged syllabi downloaded');
-        } else {
-          // No DOCX syllabus files found
-          if (syllabusFiles.length > 0) {
-            toast.error('No DOCX syllabus files found to merge. PDFs were skipped.');
-          } else {
-            // no syllabus files at all
-            toast('No syllabus files attached to merge');
-          }
-        }
-      } catch (err) {
-        console.error('Failed to merge/download syllabi:', err);
-        toast.error('Failed to generate merged syllabi');
-      }
+      const fileName = formFields.regulation && formFields.branchName
+        ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Curriculum.docx`
+        : 'Full_Curriculum.docx';
+      saveAs(finalBlob, fileName);
+      toast.success('✔️ Full Curriculum downloaded successfully');
     } catch (error) {
       console.error('Error generating curriculum:', error);
       toast.error('❌ Failed to generate document');
