@@ -28,7 +28,8 @@ RUN cat > package.json <<'EOF'
     "express": "^4.18.2",
     "multer": "^1.4.5-lts.1",
     "pdf-merger-js": "^4.2.0",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "cors": "^2.8.5"
   }
 }
 EOF
