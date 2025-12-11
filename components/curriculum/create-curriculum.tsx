@@ -1360,43 +1360,54 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         toast.error('No DOCX syllabus files found. Only DOCX files can be merged. PDFs were skipped.');
       }
 
-      const merger = new DocxMerger();
-      await merger.merge([buffer1, buffer2, ...syllabusBuffers]);
-      const finalBuffer = await merger.save();
+      // Create two DOCX files:
+      // 1) main curriculum (template + electives)
+      // 2) merged syllabi (all syllabus DOCX files)
+      const mainMerger = new DocxMerger();
+      await mainMerger.merge([buffer1, buffer2]);
+      const mainBuffer = await mainMerger.save();
+      const mainBlob = new Blob([mainBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 
-      const finalBlob = new Blob([finalBuffer], {
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      });
-
-      // Send DOCX to Flask backend for PDF conversion
-      const fileName = formFields.regulation && formFields.branchName
-        ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Curriculum`
-        : 'Full_Curriculum';
-
-      try {
-        const formData = new FormData();
-        formData.append('file', finalBlob, `${fileName}.docx`);
-
-        // Use dedicated PDF conversion service hosted on Render
-        const API_URL = process.env.NEXT_PUBLIC_PDF_API_URL || 'https://csmspdf.onrender.com';
-        const response = await fetch(`${API_URL}/api/convert-docx-to-pdf`, {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error(`PDF conversion failed: ${response.statusText}`);
-        }
-
-        const pdfBlob = await response.blob();
-        saveAs(pdfBlob, `${fileName}.pdf`);
-        toast.success('✔️ Curriculum PDF generated successfully');
-      } catch (pdfError) {
-        console.error('PDF conversion error:', pdfError);
-        toast.error('❌ PDF conversion failed. Downloading DOCX instead...');
-        // Fallback: download DOCX
-        saveAs(finalBlob, `${fileName}.docx`);
+      let mergedSyllabusBlob: Blob | null = null;
+      if (syllabusBuffers && syllabusBuffers.length > 0) {
+        const syllabusMerger = new DocxMerger();
+        await syllabusMerger.merge(syllabusBuffers);
+        const mergedSyllabusBuffer = await syllabusMerger.save();
+        mergedSyllabusBlob = new Blob([mergedSyllabusBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       }
+
+      // Helper to POST a DOCX blob to the conversion API and download PDF
+      const convertAndDownload = async (docxBlob: Blob, outNameBase: string) => {
+        try {
+          const formData = new FormData();
+          formData.append('file', docxBlob, `${outNameBase}.docx`);
+          const API_URL = process.env.NEXT_PUBLIC_PDF_API_URL || 'https://csmspdf.onrender.com';
+          const resp = await fetch(`${API_URL}/api/convert-docx-to-pdf`, { method: 'POST', body: formData });
+          if (!resp.ok) throw new Error(`Conversion failed: ${resp.statusText}`);
+          const pdfBlob = await resp.blob();
+          saveAs(pdfBlob, `${outNameBase}.pdf`);
+        } catch (err) {
+          console.error('Conversion/download error for', outNameBase, err);
+          toast.error(`PDF conversion failed for ${outNameBase}. Downloading DOCX instead.`);
+          saveAs(docxBlob, `${outNameBase}.docx`);
+        }
+      };
+
+      const baseName = formFields.regulation && formFields.branchName
+        ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}`
+        : 'Curriculum';
+
+      // Convert & download main curriculum PDF
+      await convertAndDownload(mainBlob, `${baseName}_Main_Curriculum`);
+
+      // Convert & download merged syllabi PDF (if present)
+      if (mergedSyllabusBlob) {
+        await convertAndDownload(mergedSyllabusBlob, `${baseName}_Merged_Syllabi`);
+      } else {
+        toast('No syllabus DOCX files to convert to PDF');
+      }
+
+      toast.success('✔️ PDFs processed');
     } catch (error) {
       console.error('Error generating curriculum:', error);
       toast.error('❌ Failed to generate PDF: ' + (error instanceof Error ? error.message : 'Unknown'));
