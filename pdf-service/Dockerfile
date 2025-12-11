@@ -43,13 +43,18 @@ const { execFileSync } = require('child_process');
 const PDFMerger = require('pdf-merger-js');
 const { v4: uuidv4 } = require('uuid');
 const multer = require('multer');
+const cors = require('cors');
 
 const app = express();
+app.use(cors());
 app.use(express.json({ limit: '200mb' }));
 
 const PORT = process.env.PORT || 10000;
 
 app.get('/ping', (req, res) => res.json({ status: 'ok' }));
+
+// Root route for platform health checks
+app.get('/', (req, res) => res.send('ok'));
 
 // Helper: download a URL to disk
 async function downloadTo(fileUrl, destPath) {
