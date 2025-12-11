@@ -42,50 +42,91 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const PDFMerger = require('pdf-merger-js');
 const { v4: uuidv4 } = require('uuid');
+const multer = require('multer');
 
 const app = express();
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '200mb' }));
 
 const PORT = process.env.PORT || 10000;
 
 app.get('/ping', (req, res) => res.json({ status: 'ok' }));
 
-// POST { "docxUrls": ["https://.../a.docx","https://.../b.docx"] }
-app.post('/convert', async (req, res) => {
-  const docxUrls = req.body.docxUrls;
-  if (!Array.isArray(docxUrls) || docxUrls.length === 0) {
-    return res.status(400).json({ error: 'Provide docxUrls array' });
-  }
+// Helper: download a URL to disk
+async function downloadTo(fileUrl, destPath) {
+  const resp = await axios.get(fileUrl, { responseType: 'arraybuffer', timeout: 120000 });
+  fs.writeFileSync(destPath, Buffer.from(resp.data));
+}
 
+// Convert any .docx files in `inputs` (paths) to PDFs in workDir and return array of pdf paths
+function convertDocxToPdf(inputs, workDir) {
+  const pdfs = [];
+  for (const inputPath of inputs) {
+    const ext = path.extname(inputPath).toLowerCase();
+    if (ext !== '.docx' && ext !== '.doc') continue;
+    try {
+      execFileSync('soffice', ['--headless', '--convert-to', 'pdf', '--outdir', workDir, inputPath], { timeout: 120000 });
+      const base = path.basename(inputPath, path.extname(inputPath));
+      const pdfPath = path.join(workDir, `${base}.pdf`);
+      if (fs.existsSync(pdfPath)) pdfs.push(pdfPath);
+    } catch (err) {
+      console.error('soffice conversion error:', err && err.message ? err.message : err);
+    }
+  }
+  return pdfs;
+}
+
+// Support both JSON body with docxUrls and multipart/form-data file uploads
+const upload = multer({ dest: '/tmp/uploads' });
+
+app.post('/convert', upload.array('files'), async (req, res) => {
   const jobId = uuidv4();
   const workDir = path.join('/tmp', `pdfsvc-${jobId}`);
   fs.mkdirSync(workDir, { recursive: true });
 
   try {
-    const pdfFiles = [];
+    const inputDocxPaths = [];
 
-    // Download each DOCX and convert
-    for (let i = 0; i < docxUrls.length; i++) {
-      const url = docxUrls[i];
-      const docxPath = path.join(workDir, `file-${i}.docx`);
-
-      const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 120000 });
-      fs.writeFileSync(docxPath, Buffer.from(resp.data));
-
-      // Convert to PDF using soffice (LibreOffice headless)
-      // Output pdf will be named file-<i>.pdf in workDir
-      execFileSync('soffice', ['--headless', '--convert-to', 'pdf', '--outdir', workDir, docxPath], { timeout: 120000 });
-
-      const pdfPath = path.join(workDir, `file-${i}.pdf`);
-      if (!fs.existsSync(pdfPath)) {
-        throw new Error(`Conversion failed for ${url}`);
+    // If files were uploaded via multipart/form-data
+    if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+      for (const f of req.files) {
+        // move the uploaded file into workDir with its original name
+        const origName = f.originalname || path.basename(f.path);
+        const dest = path.join(workDir, origName);
+        fs.copyFileSync(f.path, dest);
+        inputDocxPaths.push(dest);
       }
-      pdfFiles.push(pdfPath);
     }
 
-    // Merge PDFs
+    // If JSON body contains docxUrls array, download them
+    if (req.body && req.body.docxUrls) {
+      let urls = req.body.docxUrls;
+      if (typeof urls === 'string') {
+        try { urls = JSON.parse(urls); } catch {}
+      }
+      if (Array.isArray(urls)) {
+        for (let i = 0; i < urls.length; i++) {
+          const url = urls[i];
+          const dest = path.join(workDir, `downloaded-${i}.docx`);
+          await downloadTo(url, dest);
+          inputDocxPaths.push(dest);
+        }
+      }
+    }
+
+    if (inputDocxPaths.length === 0) {
+      return res.status(400).json({ error: 'No input DOCX files provided (upload files or provide docxUrls).' });
+    }
+
+    // Convert each docx to pdf
+    const pdfPaths = convertDocxToPdf(inputDocxPaths, workDir);
+
+    if (pdfPaths.length === 0) {
+      throw new Error('No PDFs generated from inputs');
+    }
+
+    // Merge PDFs in the order they were provided
     const merger = new PDFMerger();
-    for (const p of pdfFiles) merger.add(p);
+    for (const p of pdfPaths) merger.add(p);
 
     const outPath = path.join(workDir, 'merged.pdf');
     await merger.save(outPath);
@@ -93,8 +134,10 @@ app.post('/convert', async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=merged.pdf');
     res.sendFile(outPath, (err) => {
-      // cleanup
+      // best-effort cleanup
       try {
+        // remove uploaded tmp files
+        if (req.files) req.files.forEach(f => { try { fs.unlinkSync(f.path); } catch (e) {} });
         fs.readdirSync(workDir).forEach(f => fs.unlinkSync(path.join(workDir, f)));
         fs.rmdirSync(workDir);
       } catch (e) {
@@ -102,8 +145,7 @@ app.post('/convert', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error(err);
-    // try cleanup
+    console.error('conversion error:', err && err.message ? err.message : err);
     try { fs.rmdirSync(workDir, { recursive: true }); } catch (e) {}
     res.status(500).json({ error: err.message || 'Conversion failed' });
   }

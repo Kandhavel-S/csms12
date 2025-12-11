@@ -364,7 +364,7 @@ const CourseInputRow: React.FC<{
         let file: File | undefined = undefined;
 
         if (isFirstInSection && headerTitle && extension === 'docx') {
-          const mergeRes = await fetch(`https://csmspy.onrender.com/merge-first-syllabus`, {
+          const mergeRes = await fetch(`https://csmspdf.onrender.com/merge-first-syllabus`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -624,7 +624,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       // Merge header for first row if needed
       if (isFirstRow && extension === 'docx' && headerTitle) {
         try {
-          const mergeRes = await fetch(`https://csmspy.onrender.com/merge-first-syllabus`, {
+          const mergeRes = await fetch(`https://csmspdf.onrender.com/merge-first-syllabus`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -859,7 +859,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
             const verticalNumber = formFields.professionalElectives[columnIndex].verticalNumber;
             const verticalName = formFields.professionalElectives[columnIndex].verticalName;
             const headerTitle = verticalName ? `${verticalNumber} - ${verticalName}` : verticalNumber;
-            const mergeRes = await fetch(`https://csmspy.onrender.com/merge-first-syllabus`, {
+            const mergeRes = await fetch(`https://csmspdf.onrender.com/merge-first-syllabus`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -1045,7 +1045,6 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       const data = transformFormFields(formFields);
       let docxBlob = await generateDocxFromTemplate('/templates/Curriculum-Template.docx', data);
       const buffer1 = await docxBlob.arrayBuffer();
-   
 
       const electives = formFields.professionalElectives;
       const columnWidth = 2460;
@@ -1360,22 +1359,52 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         toast.error('No DOCX syllabus files found. Only DOCX files can be merged. PDFs were skipped.');
       }
 
-      const merger = new DocxMerger();
-      await merger.merge([buffer1, buffer2, ...syllabusBuffers]);
-      const finalBuffer = await merger.save();
+      // Build two separate DOCX blobs:
+      // 1) mainDocx = merge(buffer1 + electives (buffer2))
+      // 2) syllabiDocx = merge(all syllabus buffers (if any))
+      const mainMerger = new DocxMerger();
+      await mainMerger.merge([buffer1, buffer2]);
+      const mainBuffer = await mainMerger.save();
+      const mainBlob = new Blob([mainBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 
-      const finalBlob = new Blob([finalBuffer], {
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      let syllabiBlob: Blob | null = null;
+      if (syllabusBuffers.length > 0) {
+        const syllMerger = new DocxMerger();
+        await syllMerger.merge(syllabusBuffers);
+        const syllBuffer = await syllMerger.save();
+        syllabiBlob = new Blob([syllBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      }
+
+      // Send both files to the pdf-service which converts each to PDF and merges PDFs
+      const form = new FormData();
+      form.append('files', new File([mainBlob], 'main_curriculum.docx', { type: mainBlob.type }));
+      if (syllabiBlob) {
+        form.append('files', new File([syllabiBlob], 'merged_syllabi.docx', { type: syllabiBlob.type }));
+      }
+
+      // Replace this URL with your deployed Render service if different
+      const pdfServiceUrl = 'https://csmspdf.onrender.com/convert';
+
+      const resp = await fetch(pdfServiceUrl, {
+        method: 'POST',
+        body: form,
       });
 
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        throw new Error(`PDF service failed: ${resp.status} ${txt}`);
+      }
+
+      const outPdf = await resp.blob();
       const fileName = formFields.regulation && formFields.branchName
-        ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Curriculum.docx`
-        : 'Full_Curriculum.docx';
-      saveAs(finalBlob, fileName);
-      toast.success('✔️ Full Curriculum downloaded successfully');
+        ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Curriculum.pdf`
+        : 'Full_Curriculum.pdf';
+
+      saveAs(outPdf, fileName);
+      toast.success('✔️ Full Curriculum PDF downloaded successfully');
     } catch (error) {
       console.error('Error generating curriculum:', error);
-      toast.error('❌ Failed to generate document');
+      toast.error('❌ Failed to generate PDF: ' + (error instanceof Error ? error.message : 'Unknown'));
     } finally {
       setIsGenerating(false);
     }
