@@ -34,8 +34,9 @@ import { saveAs } from 'file-saver';
 // Interfaces for type safety
 interface Course {
   sno: string;
+  semester?: string; // For regular courses (HSMC, BSC, etc.)
+  courseCode?: string; // For Open Electives and Mandatory Courses
   courseTitle: string;
-  semester: string;
   syllabusUrl?: string;
   syllabusFile?: File;
   l: string;
@@ -178,14 +179,14 @@ const buildDefaultFormFields = (): FormFields => ({
   oec: '',
   eec: '',
   mc: '',
-  hsmcCourses: [{ sno: '1', courseTitle: '', semester: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
-  bscCourses: [{ sno: '1', courseTitle: '', semester: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
-  escCourses: [{ sno: '1', courseTitle: '', semester: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
-  pccCourses: [{ sno: '1', courseTitle: '', semester: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
-  pecCourses: [{ sno: '1', courseTitle: '', semester: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
-  oecCourses: [{ sno: '1', courseTitle: '', semester: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
-  eecCourses: [{ sno: '1', courseTitle: '', semester: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
-  mcCourses: [{ sno: '1', courseTitle: '', semester: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
+  hsmcCourses: [{ sno: '1', semester: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
+  bscCourses: [{ sno: '1', semester: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
+  escCourses: [{ sno: '1', semester: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
+  pccCourses: [{ sno: '1', semester: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
+  pecCourses: [{ sno: '1', semester: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
+  oecCourses: [{ sno: '1', semester: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
+  eecCourses: [{ sno: '1', semester: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
+  mcCourses: [{ sno: '1', semester: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
   semester1Courses: [{ sno: '1', type: '', courseCode: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
   semester2Courses: [{ sno: '1', type: '', courseCode: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
   semester3Courses: [{ sno: '1', type: '', courseCode: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }],
@@ -202,12 +203,12 @@ const buildDefaultFormFields = (): FormFields => ({
     },
   ],
   openElectiveTables: [
-    { name: 'Open Electives - I', courses: [{ sno: '1', courseTitle: '', semester: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }] },
-    { name: 'Open Electives - II', courses: [{ sno: '1', courseTitle: '', semester: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }] },
+    { name: 'Open Electives - I', courses: [{ sno: '1', courseCode: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }] },
+    { name: 'Open Electives - II', courses: [{ sno: '1', courseCode: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }] },
   ],
   mandatoryCourseTables: [
-    { name: 'Mandatory Course - I', courses: [{ sno: '1', courseTitle: '', semester: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }] },
-    { name: 'Mandatory Course - II', courses: [{ sno: '1', courseTitle: '', semester: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }] },
+    { name: 'Mandatory Course - I', courses: [{ sno: '1', courseCode: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }] },
+    { name: 'Mandatory Course - II', courses: [{ sno: '1', courseCode: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined, l: '', t: '', p: '', c: '' }] },
   ],
 });
 
@@ -350,7 +351,9 @@ const CourseInputRow: React.FC<{
   const selectedId = e.target.value;
   const selectedSubject = allSubjects.find((subj) => subj._id === selectedId);
   if (selectedSubject) {
-    onChange(index, 'courseCode', selectedSubject.code);
+    if (isSemester) {
+      onChange(index, 'courseCode', selectedSubject.code);
+    }
     onChange(index, 'courseTitle', selectedSubject.title);
     if (selectedSubject.syllabusUrl) {
       try {
@@ -420,6 +423,15 @@ const CourseInputRow: React.FC<{
             placeholder="Code"
           />
         </>
+      )}
+      {isElective && (
+        <input
+          type="text"
+          value={(course as Course).courseCode}
+          onChange={(e) => onChange(index, 'courseCode', e.target.value)}
+          className="w-32 p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white text-sm"
+          placeholder="Course Code"
+        />
       )}
       <input
         type="text"
@@ -1013,8 +1025,8 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
   fields.openElectiveTables.forEach((table, index) => {
     transformed[`OPEN_ELECTIVE_${index + 1}`] = table.courses.map((c) => ({
       SNO: c.sno || ' ',
+      COURSE_CODE: c.courseCode || ' ',
       COURSE_TITLE: c.courseTitle || ' ',
-      SEM: c.semester || ' ',
       L: c.l || '0',
       T: c.t || '0',
       P: c.p || '0',
@@ -1026,8 +1038,8 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
   fields.mandatoryCourseTables.forEach((table, index) => {
     transformed[`MANDATORY_COURSE_${index + 1}`] = table.courses.map((c) => ({
       SNO: c.sno || ' ',
+      COURSE_CODE: c.courseCode || ' ',
       COURSE_TITLE: c.courseTitle || ' ',
-      SEM: c.semester || ' ',
       L: c.l || '0',
       T: c.t || '0',
       P: c.p || '0',
@@ -1158,12 +1170,12 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
                 children: [new Paragraph({ children: [new TextRun({ text: c.sno, font: 'Cambria', size: 22 })] })],
               }),
               new TableCell({
-                width: { size: 4320, type: WidthType.DXA },
-                children: [new Paragraph({ children: [new TextRun({ text: c.courseTitle, font: 'Cambria', size: 22 })] })],
+                width: { size: 2160, type: WidthType.DXA },
+                children: [new Paragraph({ children: [new TextRun({ text: c.courseCode, font: 'Cambria', size: 22 })] })],
               }),
               new TableCell({
-                width: { size: 720, type: WidthType.DXA },
-                children: [new Paragraph({ children: [new TextRun({ text: c.semester, font: 'Cambria', size: 22 })] })],
+                width: { size: 2880, type: WidthType.DXA },
+                children: [new Paragraph({ children: [new TextRun({ text: c.courseTitle, font: 'Cambria', size: 22 })] })],
               }),
               new TableCell({
                 width: { size: 720, type: WidthType.DXA },
@@ -1188,8 +1200,8 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
           height: { value: 0, rule: HeightRule.AUTO },
           children: [
             new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'S.No.', bold: true, font: 'Cambria', size: 22 })] })] }),
-            new TableCell({ width: { size: 4320, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Course Title', bold: true, font: 'Cambria', size: 22 })] })] }),
-            new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Semester', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 2160, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Course Code', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 2880, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Course Title', bold: true, font: 'Cambria', size: 22 })] })] }),
             new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'L', bold: true, font: 'Cambria', size: 22 })] })] }),
             new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'T', bold: true, font: 'Cambria', size: 22 })] })] }),
             new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'P', bold: true, font: 'Cambria', size: 22 })] })] }),
@@ -1225,12 +1237,12 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
                 children: [new Paragraph({ children: [new TextRun({ text: c.sno, font: 'Cambria', size: 22 })] })],
               }),
               new TableCell({
-                width: { size: 4320, type: WidthType.DXA },
-                children: [new Paragraph({ children: [new TextRun({ text: c.courseTitle, font: 'Cambria', size: 22 })] })],
+                width: { size: 2160, type: WidthType.DXA },
+                children: [new Paragraph({ children: [new TextRun({ text: c.courseCode, font: 'Cambria', size: 22 })] })],
               }),
               new TableCell({
-                width: { size: 720, type: WidthType.DXA },
-                children: [new Paragraph({ children: [new TextRun({ text: c.semester, font: 'Cambria', size: 22 })] })],
+                width: { size: 2880, type: WidthType.DXA },
+                children: [new Paragraph({ children: [new TextRun({ text: c.courseTitle, font: 'Cambria', size: 22 })] })],
               }),
               new TableCell({
                 width: { size: 720, type: WidthType.DXA },
@@ -1255,8 +1267,8 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
           height: { value: 0, rule: HeightRule.AUTO },
           children: [
             new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'S.No.', bold: true, font: 'Cambria', size: 22 })] })] }),
-            new TableCell({ width: { size: 4320, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Course Title', bold: true, font: 'Cambria', size: 22 })] })] }),
-            new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Semester', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 2160, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Course Code', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 2880, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Course Title', bold: true, font: 'Cambria', size: 22 })] })] }),
             new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'L', bold: true, font: 'Cambria', size: 22 })] })] }),
             new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'T', bold: true, font: 'Cambria', size: 22 })] })] }),
             new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'P', bold: true, font: 'Cambria', size: 22 })] })] }),
@@ -1360,52 +1372,19 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         toast.error('No DOCX syllabus files found. Only DOCX files can be merged. PDFs were skipped.');
       }
 
-      // Create and download MAIN curriculum (template + electives/appendices)
-      try {
-        const mainMerger = new DocxMerger();
-        await mainMerger.merge([buffer1, buffer2]);
-        const mainBuffer = await mainMerger.save();
-        const mainBlob = new Blob([mainBuffer], {
-          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        });
+      const merger = new DocxMerger();
+      await merger.merge([buffer1, buffer2, ...syllabusBuffers]);
+      const finalBuffer = await merger.save();
 
-        const mainFileName = formFields.regulation && formFields.branchName
-          ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Curriculum.docx`
-          : 'Main_Curriculum.docx';
-        saveAs(mainBlob, mainFileName);
-        toast.success('✔️ Main curriculum downloaded');
-      } catch (err) {
-        console.error('Failed to generate main curriculum:', err);
-        toast.error('Failed to generate main curriculum');
-      }
+      const finalBlob = new Blob([finalBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      });
 
-      // Create and download MERGED syllabi (only syllabus DOCX files)
-      try {
-        if (syllabusBuffers.length > 0) {
-          const syllabusMerger = new DocxMerger();
-          await syllabusMerger.merge(syllabusBuffers);
-          const mergedSyllabusBuffer = await syllabusMerger.save();
-          const mergedSyllabusBlob = new Blob([mergedSyllabusBuffer], {
-            type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          });
-          const syllabusFileName = formFields.regulation && formFields.branchName
-            ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Syllabi.docx`
-            : 'Merged_Syllabi.docx';
-          saveAs(mergedSyllabusBlob, syllabusFileName);
-          toast.success('✔️ Merged syllabi downloaded');
-        } else {
-          // No DOCX syllabus files found
-          if (syllabusFiles.length > 0) {
-            toast.error('No DOCX syllabus files found to merge. PDFs were skipped.');
-          } else {
-            // no syllabus files at all
-            toast('No syllabus files attached to merge');
-          }
-        }
-      } catch (err) {
-        console.error('Failed to merge/download syllabi:', err);
-        toast.error('Failed to generate merged syllabi');
-      }
+      const fileName = formFields.regulation && formFields.branchName
+        ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Curriculum.docx`
+        : 'Full_Curriculum.docx';
+      saveAs(finalBlob, fileName);
+      toast.success('✔️ Full Curriculum downloaded successfully');
     } catch (error) {
       console.error('Error generating curriculum:', error);
       toast.error('❌ Failed to generate document');
@@ -1485,6 +1464,17 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         (newFormFields as any)[`semester${i}Courses`] = [];
       }
       
+      // Reset electives arrays
+      newFormFields.professionalElectives = [];
+      newFormFields.openElectiveTables = [
+        { name: 'Open Electives - I', courses: [] },
+        { name: 'Open Electives - II', courses: [] },
+      ];
+      newFormFields.mandatoryCourseTables = [
+        { name: 'Mandatory Course - I', courses: [] },
+        { name: 'Mandatory Course - II', courses: [] },
+      ];
+      
       // Group subjects by semester first
       const subjectsBySemester: { [key: number]: any[] } = {};
       for (let i = 1; i <= 8; i++) {
@@ -1516,7 +1506,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
             courseCode: subject.code || '',
             courseTitle: subject.title || '',
             syllabusUrl: subject.syllabusUrl || '',
-            syllabusFile: undefined,
+            syllabusFile: undefined, // Will be fetched later
             l: ltpcParts[0] || '',
             t: ltpcParts[1] || '',
             p: ltpcParts[2] || '',
@@ -1543,18 +1533,189 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
             l: ltpcParts[0] || '',
             t: ltpcParts[1] || '',
             p: ltpcParts[2] || '',
-            c: ltpcParts[3] || '',
+            c: ltpcParts[3] || '', 
           });
         }
       });
+      
+      // Populate vertical subjects (professionalElectives)
+      // Fetch verticals from database instead of grouping from subjects
+      try {
+        const verticalsParams = new URLSearchParams();
+        if (matchedReg && matchedReg.versions[0]?._id) {
+          verticalsParams.append("regulationId", matchedReg.versions[0]._id);
+        }
+        if (user.department) {
+          verticalsParams.append("department", user.department);
+        }
+        
+        const verticalsRes = await fetch(
+          `http://localhost:5000/api/auth/verticals?${verticalsParams.toString()}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        
+        if (verticalsRes.ok) {
+          const verticals = await verticalsRes.json();
+          
+          // Populate professional electives from fetched verticals
+          verticals.forEach((vertical: any, index: number) => {
+            const cells = vertical.subjects && vertical.subjects.length > 0
+              ? vertical.subjects.map((subject: any) => ({
+                  courseCode: subject.code || '',
+                  courseTitle: subject.title || '',
+                  syllabusUrl: subject.syllabusUrl || '',
+                  syllabusFile: undefined,
+                }))
+              : [{ courseCode: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined }];
+            
+            newFormFields.professionalElectives.push({
+              verticalNumber: `Vertical ${toRoman(index + 1)}`,
+              verticalName: vertical.name || '',
+              cells: cells,
+            });
+          });
+        }
+      } catch (verticalError) {
+        console.error("Error fetching verticals:", verticalError);
+        // Continue with empty verticals if fetch fails
+      }
+
+      // Populate Open Electives from database
+      const openElectiveI = subjects.filter((s: any) => 
+        s.courseType === 'OEC' && s.subjectType?.includes('Open Electives - I')
+      );
+      const openElectiveII = subjects.filter((s: any) => 
+        s.courseType === 'OEC' && s.subjectType?.includes('Open Electives - II')
+      );
+
+      if (openElectiveI.length > 0) {
+        newFormFields.openElectiveTables[0].courses = openElectiveI.map((subject: any, index: number) => {
+          const ltpcParts = subject.ltpcCode ? subject.ltpcCode.split('-') : ['', '', '', ''];
+          return {
+            sno: (index + 1).toString(),
+            courseCode: subject.code || '',
+            courseTitle: subject.title || '',
+            syllabusUrl: subject.syllabusUrl || '',
+            syllabusFile: undefined,
+            l: ltpcParts[0] || '',
+            t: ltpcParts[1] || '',
+            p: ltpcParts[2] || '',
+            c: ltpcParts[3] || '',
+          };
+        });
+      }
+
+      if (openElectiveII.length > 0) {
+        newFormFields.openElectiveTables[1].courses = openElectiveII.map((subject: any, index: number) => {
+          const ltpcParts = subject.ltpcCode ? subject.ltpcCode.split('-') : ['', '', '', ''];
+          return {
+            sno: (index + 1).toString(),
+            courseCode: subject.code || '',
+            courseTitle: subject.title || '',
+            syllabusUrl: subject.syllabusUrl || '',
+            syllabusFile: undefined,
+            l: ltpcParts[0] || '',
+            t: ltpcParts[1] || '',
+            p: ltpcParts[2] || '',
+            c: ltpcParts[3] || '',
+          };
+        });
+      }
+
+      // Populate Mandatory Courses from database
+      const mandatoryCourseI = subjects.filter((s: any) => 
+        s.courseType === 'MC' && s.subjectType?.includes('Mandatory Course - I')
+      );
+      const mandatoryCourseII = subjects.filter((s: any) => 
+        s.courseType === 'MC' && s.subjectType?.includes('Mandatory Course - II')
+      );
+
+      if (mandatoryCourseI.length > 0) {
+        newFormFields.mandatoryCourseTables[0].courses = mandatoryCourseI.map((subject: any, index: number) => {
+          const ltpcParts = subject.ltpcCode ? subject.ltpcCode.split('-') : ['', '', '', ''];
+          return {
+            sno: (index + 1).toString(),
+            courseCode: subject.code || '',
+            courseTitle: subject.title || '',
+            syllabusUrl: subject.syllabusUrl || '',
+            syllabusFile: undefined,
+            l: ltpcParts[0] || '',
+            t: ltpcParts[1] || '',
+            p: ltpcParts[2] || '',
+            c: ltpcParts[3] || '',
+          };
+        });
+      }
+
+      if (mandatoryCourseII.length > 0) {
+        newFormFields.mandatoryCourseTables[1].courses = mandatoryCourseII.map((subject: any, index: number) => {
+          const ltpcParts = subject.ltpcCode ? subject.ltpcCode.split('-') : ['', '', '', ''];
+          return {
+            sno: (index + 1).toString(),
+            courseCode: subject.code || '',
+            courseTitle: subject.title || '',
+            syllabusUrl: subject.syllabusUrl || '',
+            syllabusFile: undefined,
+            l: ltpcParts[0] || '',
+            t: ltpcParts[1] || '',
+            p: ltpcParts[2] || '',
+            c: ltpcParts[3] || '',
+          };
+        });
+      }
       
       // Ensure at least one empty row if no subjects found for a category
       Object.values(courseTypeMap).forEach((key) => {
         if ((newFormFields as any)[key].length === 0) {
           (newFormFields as any)[key] = [{
             sno: '1',
+            courseCode: '',
             courseTitle: '',
-            semester: '',
+            syllabusUrl: '',
+            syllabusFile: undefined,
+            l: '',
+            t: '',
+            p: '',
+            c: ''
+          }];
+        }
+      });
+      
+      // Ensure at least one empty vertical if no verticals found
+      if (newFormFields.professionalElectives.length === 0) {
+        newFormFields.professionalElectives = [{
+          verticalNumber: 'Vertical I',
+          verticalName: '',
+          cells: [{ courseCode: '', courseTitle: '', syllabusUrl: '', syllabusFile: undefined }],
+        }];
+      }
+      
+      // Ensure at least one empty row in each open elective table
+      newFormFields.openElectiveTables.forEach(table => {
+        if (table.courses.length === 0) {
+          table.courses = [{
+            sno: '1',
+            courseTitle: '',
+            courseCode: '',
+            syllabusUrl: '',
+            syllabusFile: undefined,
+            l: '',
+            t: '',
+            p: '',
+            c: ''
+          }];
+        }
+      });
+      
+      // Ensure at least one empty row in each mandatory course table
+      newFormFields.mandatoryCourseTables.forEach(table => {
+        if (table.courses.length === 0) {
+          table.courses = [{
+            sno: '1',
+            courseTitle: '',
+            courseCode: '',
             syllabusUrl: '',
             syllabusFile: undefined,
             l: '',
@@ -1584,6 +1745,10 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       
       setFormFields(newFormFields);
       setCourseCounts(deriveCourseCounts(newFormFields));
+      
+      // Fetch syllabus files for semester courses and vertical subjects
+      await fetchSyllabusFilesForAutofill(newFormFields);
+      
       toast.success(`Autofilled ${subjects.length} subjects successfully`);
       
     } catch (error: any) {
@@ -1591,6 +1756,64 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       toast.error(error.message || "Failed to autofill subjects");
     } finally {
       setIsAutofilling(false);
+    }
+  };
+
+  const fetchSyllabusFilesForAutofill = async (fields: FormFields) => {
+    try {
+      const baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
+      
+      // Fetch syllabus files for semester courses
+      for (let sem = 1; sem <= 8; sem++) {
+        const semesterCourses = (fields as any)[`semester${sem}Courses`];
+        for (let i = 0; i < semesterCourses.length; i++) {
+          const course = semesterCourses[i];
+          if (course.syllabusUrl) {
+            try {
+              const syllabusUrl = `${baseUrl}/api/auth/file/${course.syllabusUrl}`;
+              const response = await fetch(syllabusUrl);
+              if (response.ok) {
+                const blob = await response.blob();
+                const extension = blob.type === 'application/pdf' ? 'pdf' : 'docx';
+                const fileName = `${course.courseTitle || 'syllabus'}.${extension}`;
+                const file = new File([blob], fileName, { type: blob.type });
+                course.syllabusFile = file;
+              }
+            } catch (err) {
+              console.error(`Error fetching syllabus for ${course.courseTitle}:`, err);
+            }
+          }
+        }
+      }
+      
+      // Fetch syllabus files for vertical subjects
+      for (let i = 0; i < fields.professionalElectives.length; i++) {
+        const vertical = fields.professionalElectives[i];
+        for (let j = 0; j < vertical.cells.length; j++) {
+          const cell = vertical.cells[j];
+          if (cell.syllabusUrl) {
+            try {
+              const syllabusUrl = `${baseUrl}/api/auth/file/${cell.syllabusUrl}`;
+              const response = await fetch(syllabusUrl);
+              if (response.ok) {
+                const blob = await response.blob();
+                const extension = blob.type === 'application/pdf' ? 'pdf' : 'docx';
+                const fileName = `${cell.courseTitle || 'syllabus'}.${extension}`;
+                const file = new File([blob], fileName, { type: blob.type });
+                cell.syllabusFile = file;
+              }
+            } catch (err) {
+              console.error(`Error fetching syllabus for ${cell.courseTitle}:`, err);
+            }
+          }
+        }
+      }
+      
+      // Update the state with the fetched files
+      setFormFields({ ...fields });
+      
+    } catch (error) {
+      console.error("Error fetching syllabus files:", error);
     }
   };
 
@@ -1986,9 +2209,9 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center space-x-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
                   <span className="w-12 text-center">S.No.</span>
+                  <span className="w-32 text-center">Course Code</span>
                   <span className="flex-1">Course Title</span>
                   <span className="w-40 text-center">Subject</span>
-                  <span className="w-12 text-center">Sem</span>
                   <span className="w-12 text-center">L</span>
                   <span className="w-12 text-center">T</span>
                   <span className="w-12 text-center">P</span>
@@ -2049,9 +2272,9 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center space-x-2 font-medium text-gray-700 dark:text-gray-300 text-sm">
                   <span className="w-12 text-center">S.No.</span>
+                  <span className="w-32 text-center">Course Code</span>
                   <span className="flex-1">Course Title</span>
                   <span className="w-40 text-center">Subject</span>
-                  <span className="w-12 text-center">Sem</span>
                   <span className="w-12 text-center">L</span>
                   <span className="w-12 text-center">T</span>
                   <span className="w-12 text-center">P</span>

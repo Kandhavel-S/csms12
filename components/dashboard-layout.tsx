@@ -85,6 +85,7 @@ export default function DashboardLayout({ children, user, activeTab, onTabChange
           { id: "dashboard", title: "Dashboard", icon: Home },
           { id: "departments", title: "Departments", icon: Building },
           { id: "curriculum", title: "Curriculum Review", icon: FileText },
+          { id: "common-subjects", title: "Common Subjects", icon: BookOpen },
         ]
       case "hod":
         return [

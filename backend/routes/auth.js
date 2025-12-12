@@ -912,5 +912,78 @@ router.get(
   getRegulationVersion
 );
 
+// Vertical routes
+const Vertical = require('../models/vertical');
+
+// Create a new vertical
+router.post("/verticals", protect, async (req, res) => {
+  try {
+    const { name, regulationId, regulationCode, department } = req.body;
+    
+    if (!name || !regulationId || !regulationCode || !department) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    // Get the current max displayOrder for this regulation and department
+    const maxOrderVertical = await Vertical.findOne({ regulationId, department })
+      .sort({ displayOrder: -1 })
+      .limit(1);
+    
+    const displayOrder = maxOrderVertical ? maxOrderVertical.displayOrder + 1 : 0;
+
+    const vertical = new Vertical({
+      name: name.trim(),
+      regulationId,
+      regulationCode,
+      department,
+      displayOrder,
+      createdBy: req.user._id,
+    });
+
+    await vertical.save();
+    res.status(201).json(vertical);
+  } catch (err) {
+    console.error("Error creating vertical:", err);
+    if (err.code === 11000) {
+      return res.status(400).json({ error: "Vertical with this name already exists for this regulation" });
+    }
+    res.status(500).json({ error: "Failed to create vertical" });
+  }
+});
+
+// Get verticals by regulation and department
+router.get("/verticals", async (req, res) => {
+  try {
+    const { regulationId, department } = req.query;
+    
+    const filter = {};
+    if (regulationId) filter.regulationId = regulationId;
+    if (department) filter.department = department;
+    
+    const verticals = await Vertical.find(filter)
+      .sort({ displayOrder: 1 })
+      .populate('subjects', 'code title syllabusUrl');
+    
+    res.json(verticals);
+  } catch (err) {
+    console.error("Error fetching verticals:", err);
+    res.status(500).json({ error: "Failed to fetch verticals" });
+  }
+});
+
+// Delete a vertical
+router.delete("/verticals/:id", protect, async (req, res) => {
+  try {
+    const vertical = await Vertical.findByIdAndDelete(req.params.id);
+    if (!vertical) {
+      return res.status(404).json({ error: "Vertical not found" });
+    }
+    res.json({ message: "Vertical deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting vertical:", err);
+    res.status(500).json({ error: "Failed to delete vertical" });
+  }
+});
+
 
 module.exports = router;

@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/users');
 const Subject = require('../models/subjects');
-const Notification = require('../models/notification')
+const Notification = require('../models/notification');
+const Vertical = require('../models/vertical');
 const bcrypt = require('bcryptjs');
 
 const generateToken = (user) => {
@@ -196,6 +197,26 @@ exports.addSubject = async (req,res) => {
     console.log("New subject before save:", newSubject);
     await newSubject.save();
     console.log("Subject saved with regulationCode:", newSubject.regulationCode);
+
+    // If subject belongs to a vertical, add it to the vertical's subjects array
+    if (subjectType && subjectType.trim() && regulationId && department) {
+      try {
+        const vertical = await Vertical.findOne({
+          name: subjectType.trim(),
+          regulationId: regulationId,
+          department: department
+        });
+        
+        if (vertical && !vertical.subjects.includes(newSubject._id)) {
+          vertical.subjects.push(newSubject._id);
+          await vertical.save();
+          console.log("Added subject to vertical:", vertical.name);
+        }
+      } catch (verticalErr) {
+        console.error("Error linking subject to vertical:", verticalErr);
+        // Don't fail the subject creation if vertical linking fails
+      }
+    }
 
     res.status(201).json({ message: "Subject created", subject: newSubject });
   } catch (err) {

@@ -160,6 +160,9 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   const [editDeptName, setEditDeptName] = useState("");
   const [editDeptHOD, setEditDeptHOD] = useState("");
   const [showEditDialogId, setShowEditDialogId] = useState<string | null>(null);
+  const [selectedCommonRegulation, setSelectedCommonRegulation] = useState<string | null>(null);
+  const [selectedCommonSemester, setSelectedCommonSemester] = useState<number | null>(null);
+  const [commonSubjects, setCommonSubjects] = useState<any[]>([]);
 
   // Auth guard
   useEffect(() => {
@@ -209,6 +212,28 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   useEffect(() => {
     fetchRegulations();
   }, [fetchRegulations]);
+
+  useEffect(() => {
+    if (selectedCommonRegulation && selectedCommonSemester !== null) {
+      fetchCommonSubjects();
+    }
+  }, [selectedCommonRegulation, selectedCommonSemester]);
+
+  const fetchCommonSubjects = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/auth/get-subjects`);
+      const allSubjects = await res.json();
+      
+      // Filter by regulation code and semester
+      const filtered = allSubjects.filter((s: any) => 
+        s.regulationCode === selectedCommonRegulation && s.semester === selectedCommonSemester
+      );
+      
+      setCommonSubjects(filtered);
+    } catch (error) {
+      console.error("Error fetching common subjects:", error);
+    }
+  };
 
   const handleUpdateDepartment = async (deptId: string) => {
     setShowEditDialogId(null);
@@ -683,6 +708,202 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
               </Card>
             )}
           </>
+        );
+      }
+
+      case "common-subjects": {
+        // Helper function to generate colors for common course titles
+        const getColorForTitle = (title: string, titleColorMap: Map<string, string>) => {
+          if (!titleColorMap.has(title)) {
+            const colors = [
+              'bg-blue-100 text-blue-800 border-blue-300',
+              'bg-green-100 text-green-800 border-green-300',
+              'bg-yellow-100 text-yellow-800 border-yellow-300',
+              'bg-red-100 text-red-800 border-red-300',
+              'bg-indigo-100 text-indigo-800 border-indigo-300',
+              'bg-pink-100 text-pink-800 border-pink-300',
+              'bg-teal-100 text-teal-800 border-teal-300',
+              'bg-orange-100 text-orange-800 border-orange-300',
+              'bg-cyan-100 text-cyan-800 border-cyan-300',
+              'bg-lime-100 text-lime-800 border-lime-300',
+            ];
+            const colorIndex = titleColorMap.size % colors.length;
+            titleColorMap.set(title, colors[colorIndex]);
+          }
+          return titleColorMap.get(title);
+        };
+
+        // When a semester is selected, group subjects by department and identify common titles
+        let subjectsByDepartment: Record<string, any[]> = {};
+        let titleColorMap = new Map<string, string>();
+        let commonTitles = new Set<string>();
+        
+        if (selectedCommonRegulation && selectedCommonSemester !== null) {
+          // Group by department
+          subjectsByDepartment = commonSubjects.reduce((acc: Record<string, any[]>, subject: any) => {
+            if (!acc[subject.department]) {
+              acc[subject.department] = [];
+            }
+            acc[subject.department].push(subject);
+            return acc;
+          }, {});
+          
+          // Find common titles (titles that appear in multiple departments)
+          const titleDepartmentCount: Record<string, Set<string>> = {};
+          commonSubjects.forEach((subject: any) => {
+            if (!titleDepartmentCount[subject.title]) {
+              titleDepartmentCount[subject.title] = new Set();
+            }
+            titleDepartmentCount[subject.title].add(subject.department);
+          });
+          
+          // Mark titles that appear in more than one department as common
+          Object.entries(titleDepartmentCount).forEach(([title, depts]) => {
+            if (depts.size > 1) {
+              commonTitles.add(title);
+              getColorForTitle(title, titleColorMap);
+            }
+          });
+        }
+
+        return (
+          <div className="space-y-4 animate-fade-in">
+            {!selectedCommonRegulation ? (
+              <>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-purple-700">Common Subjects Across Departments</h2>
+                    <p className="text-muted-foreground">Select a regulation to view semester-wise common subjects</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                  {Object.keys(regulations).map((regCode) => (
+                    <Card
+                      key={regCode}
+                      className="cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-purple-500/40 bg-card text-foreground transition-all"
+                      onClick={() => setSelectedCommonRegulation(regCode)}
+                    >
+                      <CardHeader>
+                        <CardTitle className="text-lg text-purple-700">Regulation {regCode}</CardTitle>
+                        <CardDescription className="text-muted-foreground">View semester-wise common subjects</CardDescription>
+                      </CardHeader>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            ) : selectedCommonSemester === null ? (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-purple-700">Regulation {selectedCommonRegulation}</h2>
+                    <p className="text-muted-foreground">Select a semester to view common subjects</p>
+                  </div>
+                  <Button variant="outline" onClick={() => setSelectedCommonRegulation(null)}>← Back</Button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((semester) => (
+                    <Card
+                      key={semester}
+                      className="cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-purple-500/40 bg-card text-foreground transition-all"
+                      onClick={() => setSelectedCommonSemester(semester)}
+                    >
+                      <CardHeader>
+                        <CardTitle className="text-lg text-purple-700">Semester {semester}</CardTitle>
+                        <CardDescription className="text-muted-foreground">Click to view subjects</CardDescription>
+                      </CardHeader>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-purple-700">
+                      Regulation {selectedCommonRegulation} - Semester {selectedCommonSemester}
+                    </h2>
+                    <p className="text-muted-foreground">
+                      Course codes with matching titles across departments are shown in the same color
+                    </p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setSelectedCommonSemester(null)}
+                  >
+                    ← Back to Semesters
+                  </Button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Object.entries(subjectsByDepartment)
+                    .sort(([deptA], [deptB]) => deptA.localeCompare(deptB))
+                    .map(([department, subjects]) => (
+                    <Card key={department} className="shadow-md">
+                      <CardHeader className="bg-purple-50 border-b">
+                        <CardTitle className="text-lg text-purple-700">{department}</CardTitle>
+                        <CardDescription>{subjects.length} course(s)</CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-4">
+                        <div className="flex flex-wrap gap-2">
+                          {subjects
+                            .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
+                            .map((subject: any) => {
+                            const isCommon = commonTitles.has(subject.title);
+                            const colorClass = isCommon 
+                              ? getColorForTitle(subject.title, titleColorMap)
+                              : 'bg-gray-100 text-gray-800 border-gray-300';
+                            
+                            return (
+                              <Badge
+                                key={subject._id}
+                                className={`${colorClass} border px-3 py-1 text-sm font-medium`}
+                                title={`${subject.title} (${subject.code})`}
+                              >
+                                {subject.code}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                
+                {commonTitles.size > 0 && (
+                  <Card className="mt-6 bg-blue-50 border-blue-200">
+                    <CardHeader>
+                      <CardTitle className="text-lg text-blue-700">Common Subjects Legend</CardTitle>
+                      <CardDescription>Subjects with matching titles across departments</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {Array.from(commonTitles).sort().map((title) => {
+                          const colorClass = getColorForTitle(title, titleColorMap);
+                          const subjectsWithTitle = commonSubjects.filter((s: any) => s.title === title);
+                          const departments = [...new Set(subjectsWithTitle.map((s: any) => s.department))];
+                          const courseCodes = [...new Set(subjectsWithTitle.map((s: any) => s.code))];
+                          
+                          return (
+                            <div key={title} className="flex items-start gap-3">
+                              <Badge className={`${colorClass} border px-3 py-1`}>
+                                {courseCodes.join(', ')}
+                              </Badge>
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Found in: {departments.join(', ')}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
+          </div>
         );
       }
 

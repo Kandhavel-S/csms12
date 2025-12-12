@@ -158,6 +158,22 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [facultyPopoverOpen, setFacultyPopoverOpen] = useState(false)
   const [expertPopoverOpen, setExpertPopoverOpen] = useState(false);
   const [isUpdateTitleDialogOpen, setIsUpdateTitleDialogOpen] = useState(false);
+  const [verticals, setVerticals] = useState<{id: number; name: string}[]>([]);
+  const [selectedVertical, setSelectedVertical] = useState<number | null>(null);
+  const [isVerticalMode, setIsVerticalMode] = useState(false);
+  const [isCreateVerticalDialogOpen, setIsCreateVerticalDialogOpen] = useState(false);
+  const [newVerticalName, setNewVerticalName] = useState("");
+  const [isElectiveMode, setIsElectiveMode] = useState(false); // true for Open Electives, false not set
+  const [isMandatoryMode, setIsMandatoryMode] = useState(false); // true for Mandatory Courses
+  const [selectedElectiveCategory, setSelectedElectiveCategory] = useState<string | null>(null);
+  const [isAddElectiveSubjectOpen, setIsAddElectiveSubjectOpen] = useState(false);
+  const [electiveSubjectCode, setElectiveSubjectCode] = useState("");
+  const [electiveSubjectTitle, setElectiveSubjectTitle] = useState("");
+  const [electiveRegulationCode, setElectiveRegulationCode] = useState("");
+  const [electiveL, setElectiveL] = useState("");
+  const [electiveT, setElectiveT] = useState("");
+  const [electiveP, setElectiveP] = useState("");
+  const [electiveC, setElectiveC] = useState("");
   const [titleUpdateInfo, setTitleUpdateInfo] = useState<{
     oldTitle: string;
     newTitle: string;
@@ -186,6 +202,91 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   useEffect(() => {
     fetchSubjects();
   }, []);
+
+  useEffect(() => {
+    if (selectedRegulationId) {
+      fetchVerticals();
+    }
+  }, [selectedRegulationId]);
+
+  const fetchVerticals = async () => {
+    if (!selectedRegulationId) return;
+    
+    try {
+      const params = new URLSearchParams();
+      params.append("regulationId", selectedRegulationId);
+      params.append("department", user.department || "");
+      
+      const res = await fetch(`http://localhost:5000/api/auth/verticals?${params.toString()}`);
+      const data = await res.json();
+      
+      if (res.ok) {
+        const mappedVerticals = data.map((v: any) => ({
+          id: v._id,
+          name: v.name,
+        }));
+        setVerticals(mappedVerticals);
+      }
+    } catch (error) {
+      console.error("Error fetching verticals:", error);
+    }
+  };
+
+  const handleCreateVertical = () => {
+    setNewVerticalName("");
+    setIsCreateVerticalDialogOpen(true);
+  };
+
+  const handleConfirmCreateVertical = async () => {
+    if (!newVerticalName.trim()) {
+      toast.error("Please enter a vertical name");
+      return;
+    }
+    
+    if (!selectedRegulationId) {
+      toast.error("Please select a regulation first");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      const selectedReg = regulations.find(r => r.versions[0]?._id === selectedRegulationId);
+      
+      if (!selectedReg) {
+        toast.error("Regulation not found");
+        return;
+      }
+
+      const res = await fetch("http://localhost:5000/api/auth/verticals", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newVerticalName.trim(),
+          regulationId: selectedRegulationId,
+          regulationCode: selectedReg.regulationCode,
+          department: user.department || "",
+        }),
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create vertical");
+      }
+
+      // Add to local state
+      setVerticals(prev => [...prev, { id: data._id, name: data.name }]);
+      setIsCreateVerticalDialogOpen(false);
+      setNewVerticalName("");
+      toast.success(`Vertical "${newVerticalName}" created successfully`);
+    } catch (error: any) {
+      console.error("Error creating vertical:", error);
+      toast.error(error.message || "Failed to create vertical");
+    }
+  };
   
   // Reset unsaved order flag when changing semester or regulation
   useEffect(() => {
@@ -236,6 +337,16 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   useEffect(() => {
     fetchRegulations();
   }, [fetchRegulations]);
+
+  // Populate regulation code when elective dialog opens
+  useEffect(() => {
+    if (isAddElectiveSubjectOpen && selectedRegulationId) {
+      const selectedReg = regulations.find(r => r.versions[0]?._id === selectedRegulationId);
+      if (selectedReg) {
+        setElectiveRegulationCode(selectedReg.regulationCode);
+      }
+    }
+  }, [isAddElectiveSubjectOpen, selectedRegulationId, regulations]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -494,7 +605,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   };
 
   const handleAddSubject = async () => {
-  if (newSubjectCode && newSubjectName && (selectedRegulationForSubject || selectedRegulationId) && selectedSemester) {
+  if (newSubjectCode && newSubjectName && (selectedRegulationForSubject || selectedRegulationId) && (selectedSemester || selectedVertical)) {
     try {
       const regulationId = selectedRegulationForSubject || selectedRegulationId;
       
@@ -556,6 +667,9 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         ? -1 
         : Math.max(...semesterSubjects.map((s: Subject) => s.displayOrder || 0));
 
+      const selectedVerticalObj = verticals.find(v => v.id === selectedVertical);
+      const verticalType = selectedVerticalObj ? selectedVerticalObj.name : "";
+      
       const requestBody = {
         code: newSubjectCode,
         title: newSubjectName,
@@ -565,10 +679,10 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         regulationId: regulationId,
         regulationCode: regCode,
         department: user.department || "",
-        semester: selectedSemester,
+        semester: selectedSemester || 0,
         displayOrder: maxOrder + 1,
         courseType: courseType || "",
-        subjectType: subjectType || "",
+        subjectType: selectedVertical ? verticalType : (subjectType || ""),
         ltpcCode: `${ltpcL}-${ltpcT}-${ltpcP}-${ltpcC}`
       };
 
@@ -1120,14 +1234,25 @@ const handleLeaveWithoutSaving = () => {
           ? regulations.find(r => r.versions[0]?._id === selectedRegulationId)
           : null;
         
-        const filteredSubjects = selectedSemester && selectedRegulationId
+        const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+        const filteredSubjects = (selectedSemester || selectedVertical || selectedElectiveCategory) && selectedRegulationId
           ? subjects
               .filter(s => {
                 const regIdMatch = s.regulationId === selectedRegulationId || 
                                   s.regulationId?._id === selectedRegulationId ||
                                   s.regulationId?.toString() === selectedRegulationId;
-                const semMatch = s.semester === selectedSemester;
-                return regIdMatch && semMatch;
+                
+                if (selectedSemester) {
+                  const semMatch = s.semester === selectedSemester;
+                  return regIdMatch && semMatch;
+                } else if (selectedVertical) {
+                  const selectedVerticalObj = verticals.find(v => v.id === selectedVertical);
+                  const verticalName = selectedVerticalObj?.name.toLowerCase() || '';
+                  return regIdMatch && s.subjectType?.toLowerCase().includes(verticalName);
+                } else if (selectedElectiveCategory) {
+                  return regIdMatch && s.subjectType?.includes(selectedElectiveCategory);
+                }
+                return false;
               })
               .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
           : [];
@@ -1240,8 +1365,14 @@ const handleLeaveWithoutSaving = () => {
                       )}
                     </Button>
                   )}
-                  {selectedSemester && (
+                  {(selectedSemester || selectedVertical) && (
                     <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setIsAddSubjectOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Subject
+                    </Button>
+                  )}
+                  {selectedElectiveCategory && (
+                    <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setIsAddElectiveSubjectOpen(true)}>
                       <Plus className="mr-2 h-4 w-4" />
                       Add Subject
                     </Button>
@@ -1398,7 +1529,7 @@ const handleLeaveWithoutSaving = () => {
               <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
                 <span 
                   className="cursor-pointer hover:text-purple-600" 
-                  onClick={() => { setSelectedRegulationId(null); setSelectedSemester(null); }}
+                  onClick={() => { setSelectedRegulationId(null); setSelectedSemester(null); setSelectedVertical(null); setIsVerticalMode(false); setVerticals([]); setSelectedElectiveCategory(null); setIsElectiveMode(false); setIsMandatoryMode(false); }}
                 >
                   Regulations
                 </span>
@@ -1407,16 +1538,60 @@ const handleLeaveWithoutSaving = () => {
                     <span>/</span>
                     <span 
                       className="cursor-pointer hover:text-purple-600"
-                      onClick={() => setSelectedSemester(null)}
+                      onClick={() => { setSelectedSemester(null); setSelectedVertical(null); setIsVerticalMode(false); setSelectedElectiveCategory(null); setIsElectiveMode(false); setIsMandatoryMode(false); }}
                     >
                       {selectedRegulation.regulationCode}
                     </span>
+                  </>
+                )}
+                {isVerticalMode && !selectedVertical && (
+                  <>
+                    <span>/</span>
+                    <span className="text-foreground font-medium">Vertical Courses</span>
                   </>
                 )}
                 {selectedSemester && (
                   <>
                     <span>/</span>
                     <span className="text-foreground font-medium">Semester {selectedSemester}</span>
+                  </>
+                )}
+                {selectedVertical && (
+                  <>
+                    <span>/</span>
+                    <span 
+                      className="cursor-pointer hover:text-purple-600"
+                      onClick={() => setSelectedVertical(null)}
+                    >
+                      Vertical Courses
+                    </span>
+                    <span>/</span>
+                    <span className="text-foreground font-medium">{verticals.find(v => v.id === selectedVertical)?.name || selectedVertical}</span>
+                  </>
+                )}
+                {isElectiveMode && !selectedElectiveCategory && (
+                  <>
+                    <span>/</span>
+                    <span className="text-foreground font-medium">Open Electives</span>
+                  </>
+                )}
+                {isMandatoryMode && !selectedElectiveCategory && (
+                  <>
+                    <span>/</span>
+                    <span className="text-foreground font-medium">Mandatory Courses</span>
+                  </>
+                )}
+                {selectedElectiveCategory && (isElectiveMode || isMandatoryMode) && (
+                  <>
+                    <span>/</span>
+                    <span 
+                      className="cursor-pointer hover:text-purple-600"
+                      onClick={() => setSelectedElectiveCategory(null)}
+                    >
+                      {selectedElectiveCategory?.includes('Open Electives') ? 'Open Electives' : 'Mandatory Courses'}
+                    </span>
+                    <span>/</span>
+                    <span className="text-foreground font-medium">{selectedElectiveCategory}</span>
                   </>
                 )}
               </div>
@@ -1453,45 +1628,271 @@ const handleLeaveWithoutSaving = () => {
               )}
 
               {/* Directory View: Semesters */}
-              {selectedRegulationId && !selectedSemester && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => {
-                    const semesterSubjects = subjects.filter(
-                      s => {
-                        const regIdMatch = s.regulationId === selectedRegulationId || 
-                                          s.regulationId?._id === selectedRegulationId ||
-                                          s.regulationId?.toString() === selectedRegulationId;
-                        const semMatch = s.semester === sem;
-                        return regIdMatch && semMatch;
-                      }
-                    );
-                    console.log(`Semester ${sem} subjects:`, semesterSubjects.length, "selectedRegId:", selectedRegulationId);
-                    return (
+              {selectedRegulationId && !selectedSemester && !selectedVertical && !isVerticalMode && !isElectiveMode && !isMandatoryMode && (
+                <>
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-purple-700 mb-3">Semesters</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => {
+                        const semesterSubjects = subjects.filter(
+                          s => {
+                            const regIdMatch = s.regulationId === selectedRegulationId || 
+                                              s.regulationId?._id === selectedRegulationId ||
+                                              s.regulationId?.toString() === selectedRegulationId;
+                            const semMatch = s.semester === sem;
+                            return regIdMatch && semMatch;
+                          }
+                        );
+                        console.log(`Semester ${sem} subjects:`, semesterSubjects.length, "selectedRegId:", selectedRegulationId);
+                        return (
+                          <Card 
+                            key={sem}
+                            className="cursor-pointer hover:border-purple-500 transition-colors"
+                            onClick={() => setSelectedSemester(sem)}
+                          >
+                            <CardHeader>
+                              <CardTitle className="text-lg">Semester {sem}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <p className="text-sm text-muted-foreground">
+                                {semesterSubjects.length} subjects
+                              </p>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold text-purple-700 mb-3">Special Categories</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <Card 
-                        key={sem}
                         className="cursor-pointer hover:border-purple-500 transition-colors"
-                        onClick={() => setSelectedSemester(sem)}
+                        onClick={() => {
+                          setIsVerticalMode(true);
+                          setSelectedSemester(null);
+                        }}
                       >
                         <CardHeader>
-                          <CardTitle className="text-lg">Semester {sem}</CardTitle>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <FileText className="h-5 w-5 text-purple-600" />
+                            Vertical Courses
+                          </CardTitle>
                         </CardHeader>
                         <CardContent>
                           <p className="text-sm text-muted-foreground">
-                            {semesterSubjects.length} subjects
+                            {verticals.length} verticals created
                           </p>
                         </CardContent>
                       </Card>
-                    );
-                  })}
+
+                      <Card 
+                        className="cursor-pointer hover:border-purple-500 transition-colors"
+                        onClick={() => {
+                          setIsElectiveMode(true);
+                          setSelectedSemester(null);
+                        }}
+                      >
+                        <CardHeader>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <BookOpen className="h-5 w-5 text-purple-600" />
+                            Open Electives
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground">
+                            {subjects.filter(s => {
+                              const regIdMatch = s.regulationId === selectedRegulationId || 
+                                                s.regulationId?._id === selectedRegulationId ||
+                                                s.regulationId?.toString() === selectedRegulationId;
+                              return regIdMatch && s.courseType === 'OEC';
+                            }).length} total courses
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card 
+                        className="cursor-pointer hover:border-purple-500 transition-colors"
+                        onClick={() => {
+                          setIsMandatoryMode(true);
+                          setSelectedSemester(null);
+                        }}
+                      >
+                        <CardHeader>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <FileText className="h-5 w-5 text-purple-600" />
+                            Mandatory Courses
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground">
+                            {subjects.filter(s => {
+                              const regIdMatch = s.regulationId === selectedRegulationId || 
+                                                s.regulationId?._id === selectedRegulationId ||
+                                                s.regulationId?.toString() === selectedRegulationId;
+                              return regIdMatch && s.courseType === 'MC';
+                            }).length} total courses
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Directory View: Open Electives */}
+              {selectedRegulationId && isElectiveMode && !selectedElectiveCategory && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-purple-700 mb-3">Open Electives</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Card 
+                      className="cursor-pointer hover:border-purple-500 transition-colors"
+                      onClick={() => setSelectedElectiveCategory('Open Electives - I')}
+                    >
+                      <CardHeader>
+                        <CardTitle className="text-lg">Open Electives - I</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground">
+                          {subjects.filter(s => {
+                            const regIdMatch = s.regulationId === selectedRegulationId || 
+                                              s.regulationId?._id === selectedRegulationId ||
+                                              s.regulationId?.toString() === selectedRegulationId;
+                            return regIdMatch && s.courseType === 'OEC' && s.subjectType?.includes('Open Electives - I');
+                          }).length} courses
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card 
+                      className="cursor-pointer hover:border-purple-500 transition-colors"
+                      onClick={() => setSelectedElectiveCategory('Open Electives - II')}
+                    >
+                      <CardHeader>
+                        <CardTitle className="text-lg">Open Electives - II</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground">
+                          {subjects.filter(s => {
+                            const regIdMatch = s.regulationId === selectedRegulationId || 
+                                              s.regulationId?._id === selectedRegulationId ||
+                                              s.regulationId?.toString() === selectedRegulationId;
+                            return regIdMatch && s.courseType === 'OEC' && s.subjectType?.includes('Open Electives - II');
+                          }).length} courses
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              )}
+
+              {/* Directory View: Mandatory Courses */}
+              {selectedRegulationId && isMandatoryMode && !selectedElectiveCategory && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-purple-700 mb-3">Mandatory Courses</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Card 
+                      className="cursor-pointer hover:border-purple-500 transition-colors"
+                      onClick={() => setSelectedElectiveCategory('Mandatory Course - I')}
+                    >
+                      <CardHeader>
+                        <CardTitle className="text-lg">Mandatory Course - I</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground">
+                          {subjects.filter(s => {
+                            const regIdMatch = s.regulationId === selectedRegulationId || 
+                                              s.regulationId?._id === selectedRegulationId ||
+                                              s.regulationId?.toString() === selectedRegulationId;
+                            return regIdMatch && s.courseType === 'MC' && s.subjectType?.includes('Mandatory Course - I');
+                          }).length} courses
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card 
+                      className="cursor-pointer hover:border-purple-500 transition-colors"
+                      onClick={() => setSelectedElectiveCategory('Mandatory Course - II')}
+                    >
+                      <CardHeader>
+                        <CardTitle className="text-lg">Mandatory Course - II</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground">
+                          {subjects.filter(s => {
+                            const regIdMatch = s.regulationId === selectedRegulationId || 
+                                              s.regulationId?._id === selectedRegulationId ||
+                                              s.regulationId?.toString() === selectedRegulationId;
+                            return regIdMatch && s.courseType === 'MC' && s.subjectType?.includes('Mandatory Course - II');
+                          }).length} courses
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              )}
+
+              {/* Directory View: Verticals */}
+              {selectedRegulationId && isVerticalMode && !selectedVertical && (
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-purple-700">Vertical Courses</h3>
+                    <Button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCreateVertical();
+                      }}
+                      className="bg-purple-600 hover:bg-purple-700"
+                      size="sm"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Create Vertical
+                    </Button>
+                  </div>
+                  {verticals.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No verticals created yet.</p>
+                      <p className="text-sm">Click "Create Vertical" to add one.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {verticals.map((vertical, index) => {
+                        const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+                        const verticalSubjects = subjects.filter(s => {
+                          const regIdMatch = s.regulationId === selectedRegulationId || 
+                                            s.regulationId?._id === selectedRegulationId ||
+                                            s.regulationId?.toString() === selectedRegulationId;
+                          return regIdMatch && s.subjectType?.toLowerCase().includes(vertical.name.toLowerCase());
+                        });
+                        return (
+                          <Card 
+                            key={vertical.id}
+                            className="cursor-pointer hover:border-purple-500 transition-colors"
+                            onClick={() => setSelectedVertical(vertical.id)}
+                          >
+                            <CardHeader>
+                              <CardTitle className="text-lg">Vertical {romanNumerals[index]} - {vertical.name}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <p className="text-sm text-muted-foreground">
+                                {verticalSubjects.length} subjects
+                              </p>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Subject List View with Drag & Drop */}
-              {selectedSemester && (
+              {(selectedSemester || selectedVertical || selectedElectiveCategory) && (
                 <div className="space-y-2">
                   {filteredSubjects.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      <p>No subjects in this semester yet.</p>
+                      <p>No subjects in this {selectedSemester ? 'semester' : selectedVertical ? 'vertical' : 'category'} yet.</p>
                       <p className="text-sm">Click "Add Subject" to create one.</p>
                     </div>
                   ) : (
@@ -1585,16 +1986,21 @@ const handleLeaveWithoutSaving = () => {
             }}>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Add New Subject</DialogTitle>
+                  <DialogTitle>
+                    {selectedVertical 
+                      ? `Add New Subject to Vertical ${romanNumerals[verticals.findIndex(v => v.id === selectedVertical)]} - ${verticals.find(v => v.id === selectedVertical)?.name}`
+                      : `Add New Subject to Semester ${selectedSemester}`
+                    }
+                  </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="subject-code">Subject Code</Label>
+                    <Label htmlFor="subject-code">Course Code</Label>
                     <Input
                       id="subject-code"
                       value={newSubjectCode}
                       onChange={(e) => handleCourseCodeChange(e.target.value)}
-                      placeholder="Enter subject code (e.g., CS101)"
+                      placeholder="Enter course code (e.g., CS101)"
                     />
                     {courseCodeWarning && (
                       <p className={`text-sm mt-1 ${
@@ -1603,12 +2009,12 @@ const handleLeaveWithoutSaving = () => {
                     )}
                   </div>
                   <div>
-                    <Label htmlFor="subject-title">Subject Title</Label>
+                    <Label htmlFor="subject-title">Course Title</Label>
                     <Input
                       id="subject-title"
                       value={newSubjectName}
                       onChange={(e) => setNewSubjectName(e.target.value)}
-                      placeholder="Enter subject Title"
+                      placeholder="Enter course title"
                     />
                   </div>
                   <div>
@@ -1630,107 +2036,136 @@ const handleLeaveWithoutSaving = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label htmlFor="subject-semester">Semester</Label>
-                    <Select 
-                      value={selectedSemester?.toString() || ""} 
-                      onValueChange={(val) => {}}
-                      disabled={!!selectedSemester}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={selectedSemester ? `Semester ${selectedSemester}` : "Select Semester"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
-                          <SelectItem key={sem} value={sem.toString()}>
-                            Semester {sem}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="course-type">Course Type</Label>
-                    <Select 
-                      value={courseType} 
-                      onValueChange={setCourseType}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select Course Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="HSMC">Humanities & Social Science (HSMC)</SelectItem>
-                        <SelectItem value="BSC">Basic Science (BSC)</SelectItem>
-                        <SelectItem value="ESC">Engineering Science (ESC)</SelectItem>
-                        <SelectItem value="PCC">Program Core (PCC)</SelectItem>
-                        <SelectItem value="PEC">Professional Elective (PEC)</SelectItem>
-                        <SelectItem value="OEC">Open Elective (OEC)</SelectItem>
-                        <SelectItem value="EEC">Employability Enhancement (EEC)</SelectItem>
-                        <SelectItem value="MC">Mandatory Courses (MC)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="subject-type">Subject Type</Label>
-                    <Select 
-                      value={subjectType} 
-                      onValueChange={setSubjectType}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select Subject Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Theory">Theory</SelectItem>
-                        <SelectItem value="Practical">Practical</SelectItem>
-                        <SelectItem value="T&P">T&P</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>LTPC Code</Label>
-                    <div className="grid grid-cols-4 gap-2">
+                  {!selectedVertical && (
+                    <>
                       <div>
-                        <Label htmlFor="ltpc-l" className="text-xs">L</Label>
-                        <Input
-                          id="ltpc-l"
-                          value={ltpcL}
-                          onChange={(e) => setLtpcL(e.target.value)}
-                          placeholder="0"
-                          className="text-center"
-                        />
+                        <Label htmlFor="subject-semester">Semester</Label>
+                        <Select 
+                          value={selectedSemester?.toString() || ""} 
+                          onValueChange={(val) => {}}
+                          disabled={!!selectedSemester}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder={selectedSemester ? `Semester ${selectedSemester}` : "Select Semester"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                              <SelectItem key={sem} value={sem.toString()}>
+                                Semester {sem}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
-                        <Label htmlFor="ltpc-t" className="text-xs">T</Label>
-                        <Input
-                          id="ltpc-t"
-                          value={ltpcT}
-                          onChange={(e) => setLtpcT(e.target.value)}
-                          placeholder="0"
-                          className="text-center"
-                        />
+                        <Label htmlFor="course-type">Course Type</Label>
+                        <Select 
+                          value={courseType} 
+                          onValueChange={setCourseType}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select Course Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="HSMC">Humanities & Social Science (HSMC)</SelectItem>
+                            <SelectItem value="BSC">Basic Science (BSC)</SelectItem>
+                            <SelectItem value="ESC">Engineering Science (ESC)</SelectItem>
+                            <SelectItem value="PCC">Program Core (PCC)</SelectItem>
+                            <SelectItem value="PEC">Professional Elective (PEC)</SelectItem>
+                            <SelectItem value="OEC">Open Elective (OEC)</SelectItem>
+                            <SelectItem value="EEC">Employability Enhancement (EEC)</SelectItem>
+                            <SelectItem value="MC">Mandatory Courses (MC)</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
+                      {(courseType === 'OEC' || courseType === 'MC') && (
+                        <div>
+                          <Label htmlFor="elective-category">
+                            {courseType === 'OEC' ? 'Open Electives Category' : 'Mandatory Course Category'}
+                          </Label>
+                          <Select 
+                            value={subjectType} 
+                            onValueChange={setSubjectType}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder={`Select ${courseType === 'OEC' ? 'Open Electives' : 'Mandatory Course'}`} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={courseType === 'OEC' ? 'Open Electives - I' : 'Mandatory Course - I'}>
+                                {courseType === 'OEC' ? 'Open Electives - I' : 'Mandatory Course - I'}
+                              </SelectItem>
+                              <SelectItem value={courseType === 'OEC' ? 'Open Electives - II' : 'Mandatory Course - II'}>
+                                {courseType === 'OEC' ? 'Open Electives - II' : 'Mandatory Course - II'}
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      {courseType !== 'OEC' && courseType !== 'MC' && (
+                        <div>
+                          <Label htmlFor="subject-type">Subject Type</Label>
+                          <Select 
+                            value={subjectType} 
+                            onValueChange={setSubjectType}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select Subject Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Theory">Theory</SelectItem>
+                              <SelectItem value="Practical">Practical</SelectItem>
+                              <SelectItem value="T&P">T&P</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                       <div>
-                        <Label htmlFor="ltpc-p" className="text-xs">P</Label>
-                        <Input
-                          id="ltpc-p"
-                          value={ltpcP}
-                          onChange={(e) => setLtpcP(e.target.value)}
-                          placeholder="0"
-                          className="text-center"
-                        />
+                        <Label>LTPC Code</Label>
+                        <div className="grid grid-cols-4 gap-2">
+                          <div>
+                            <Label htmlFor="ltpc-l" className="text-xs">L</Label>
+                            <Input
+                              id="ltpc-l"
+                              value={ltpcL}
+                              onChange={(e) => setLtpcL(e.target.value)}
+                              placeholder="0"
+                              className="text-center"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="ltpc-t" className="text-xs">T</Label>
+                            <Input
+                              id="ltpc-t"
+                              value={ltpcT}
+                              onChange={(e) => setLtpcT(e.target.value)}
+                              placeholder="0"
+                              className="text-center"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="ltpc-p" className="text-xs">P</Label>
+                            <Input
+                              id="ltpc-p"
+                              value={ltpcP}
+                              onChange={(e) => setLtpcP(e.target.value)}
+                              placeholder="0"
+                              className="text-center"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="ltpc-c" className="text-xs">C</Label>
+                            <Input
+                              id="ltpc-c"
+                              value={ltpcC}
+                              onChange={(e) => setLtpcC(e.target.value)}
+                              placeholder="0"
+                              className="text-center"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <Label htmlFor="ltpc-c" className="text-xs">C</Label>
-                        <Input
-                          id="ltpc-c"
-                          value={ltpcC}
-                          onChange={(e) => setLtpcC(e.target.value)}
-                          placeholder="0"
-                          className="text-center"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                    </>
+                  )}
                   <Button onClick={handleAddSubject} className="w-full bg-purple-600 hover:bg-purple-700">
                     Add Subject
                   </Button>
@@ -1950,6 +2385,162 @@ const handleLeaveWithoutSaving = () => {
               </DialogContent>
             </Dialog>
 
+            {/* Add Elective/Mandatory Subject Dialog */}
+            <Dialog open={isAddElectiveSubjectOpen} onOpenChange={setIsAddElectiveSubjectOpen}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Add Subject to {selectedElectiveCategory}</DialogTitle>
+                  <DialogDescription>
+                    Enter the subject details for {selectedElectiveCategory}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="elective-course-code">Course Code</Label>
+                      <Input
+                        id="elective-course-code"
+                        value={electiveSubjectCode}
+                        onChange={(e) => setElectiveSubjectCode(e.target.value)}
+                        placeholder="e.g., CS101"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="elective-course-title">Course Title</Label>
+                      <Input
+                        id="elective-course-title"
+                        value={electiveSubjectTitle}
+                        onChange={(e) => setElectiveSubjectTitle(e.target.value)}
+                        placeholder="e.g., Introduction to Programming"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="elective-regulation-code">Regulation Code</Label>
+                    <Input
+                      id="elective-regulation-code"
+                      value={electiveRegulationCode}
+                      onChange={(e) => setElectiveRegulationCode(e.target.value)}
+                      placeholder="e.g., R2021"
+                      disabled
+                    />
+                  </div>
+                  <div>
+                    <Label>LTPC Code</Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <Label htmlFor="elective-l" className="text-xs">L (Lecture)</Label>
+                        <Input
+                          id="elective-l"
+                          value={electiveL}
+                          onChange={(e) => setElectiveL(e.target.value)}
+                          placeholder="0"
+                          className="text-center"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="elective-t" className="text-xs">T (Tutorial)</Label>
+                        <Input
+                          id="elective-t"
+                          value={electiveT}
+                          onChange={(e) => setElectiveT(e.target.value)}
+                          placeholder="0"
+                          className="text-center"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="elective-p" className="text-xs">P (Practical)</Label>
+                        <Input
+                          id="elective-p"
+                          value={electiveP}
+                          onChange={(e) => setElectiveP(e.target.value)}
+                          placeholder="0"
+                          className="text-center"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="elective-c" className="text-xs">C (Credits)</Label>
+                        <Input
+                          id="elective-c"
+                          value={electiveC}
+                          onChange={(e) => setElectiveC(e.target.value)}
+                          placeholder="0"
+                          className="text-center"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={async () => {
+                      if (!electiveSubjectCode || !electiveSubjectTitle) {
+                        toast.error("Please fill in all required fields");
+                        return;
+                      }
+                      
+                      try {
+                        const token = localStorage.getItem("token");
+                        const courseTypeValue = selectedElectiveCategory?.includes('Open Electives') ? 'OEC' : 'MC';
+                        
+                        const response = await fetch("http://localhost:5000/api/auth/add-subject", {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                          },
+                          body: JSON.stringify({
+                            code: electiveSubjectCode,
+                            title: electiveSubjectTitle,
+                            semester: null,
+                            regulationId: selectedRegulationId,
+                            regulationCode: selectedRegulation?.regulationCode || "",
+                            courseType: courseTypeValue,
+                            subjectType: selectedElectiveCategory,
+                            ltpcCode: `${electiveL}-${electiveT}-${electiveP}-${electiveC}`,
+                            department: user.department,
+                            displayOrder: 0,
+                            assignedFaculty: "",
+                            assignedExpert: "",
+                            createdBy: user._id,
+                          }),
+                        });
+
+                        if (!response.ok) {
+                          let errorMessage = "Failed to add subject";
+                          try {
+                            const errorData = await response.json();
+                            errorMessage = errorData.error || errorMessage;
+                          } catch (parseError) {
+                            // If JSON parsing fails, use status text
+                            errorMessage = `Server error: ${response.status} ${response.statusText}`;
+                          }
+                          throw new Error(errorMessage);
+                        }
+
+                        const newSubject = await response.json();
+                        setSubjects((prev) => [...prev, newSubject]);
+                        
+                        setElectiveSubjectCode("");
+                        setElectiveSubjectTitle("");
+                        setElectiveL("");
+                        setElectiveT("");
+                        setElectiveP("");
+                        setElectiveC("");
+                        setIsAddElectiveSubjectOpen(false);
+                        
+                        toast.success("Subject added successfully!");
+                      } catch (error: any) {
+                        console.error("Error adding subject:", error);
+                        toast.error(error.message || "Failed to add subject");
+                      }
+                    }}
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                  >
+                    Add Subject
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
             {/* Update Title Confirmation Dialog */}
             <AlertDialog open={isUpdateTitleDialogOpen} onOpenChange={setIsUpdateTitleDialogOpen}>
               <AlertDialogContent>
@@ -1971,6 +2562,51 @@ const handleLeaveWithoutSaving = () => {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+
+            {/* Create Vertical Dialog */}
+            <Dialog open={isCreateVerticalDialogOpen} onOpenChange={setIsCreateVerticalDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Vertical</DialogTitle>
+                  <DialogDescription>
+                    Enter a name for the new vertical course category
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="vertical-name">Vertical Name</Label>
+                    <Input
+                      id="vertical-name"
+                      value={newVerticalName}
+                      onChange={(e) => setNewVerticalName(e.target.value)}
+                      placeholder="e.g., AI & ML, Data Science, Cybersecurity"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleConfirmCreateVertical();
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsCreateVerticalDialogOpen(false);
+                        setNewVerticalName("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      className="bg-purple-600 hover:bg-purple-700"
+                      onClick={handleConfirmCreateVertical}
+                    >
+                      Create Vertical
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
 
           </Card>
         )
