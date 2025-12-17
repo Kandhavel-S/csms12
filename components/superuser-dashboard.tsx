@@ -13,6 +13,9 @@ import { Label } from "@/components/ui/label"
 import { Plus, Building, Users, TrendingUp, Download } from "lucide-react"
 import DashboardLayout from "./dashboard-layout"
 import { toast } from "sonner"
+import html2canvas from "html2canvas"
+import jsPDF from "jspdf"
+
 
 interface User {
   _id: string
@@ -110,7 +113,7 @@ export const CurriculumRow = ({ deptVersions }: CurriculumRowProps) => {
         {selectedVersion ? (
           selectedVersion.curriculumUrl ? (
             <a
-              href={`http://localhost:5000/api/auth/file/${selectedVersion.curriculumUrl}`}
+              href={`https://csms-x9aw.onrender.com/api/auth/file/${selectedVersion.curriculumUrl}`}
               target="_blank"
               rel="noopener noreferrer"
               download
@@ -172,8 +175,8 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
   const fetchDepartments = async () => {
     const [hodRes, deptRes] = await Promise.all([
-      fetch("http://localhost:5000/api/auth/hods"),
-      fetch("http://localhost:5000/api/auth/departments"),
+      fetch("https://csms-x9aw.onrender.com/api/auth/hods"),
+      fetch("https://csms-x9aw.onrender.com/api/auth/departments"),
     ]);
     const hodData = await hodRes.json();
     const deptData = await deptRes.json();
@@ -188,7 +191,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   const fetchRegulations = useCallback(async () => {
     try {
       setRegulationsError(null);
-      const res = await fetch("http://localhost:5000/api/auth/regulations");
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/regulations");
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data?.error || "Failed to fetch regulations");
@@ -221,7 +224,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
 
   const fetchCommonSubjects = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/get-subjects`);
+      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/get-subjects`);
       const allSubjects = await res.json();
       
       // Filter by regulation code and semester
@@ -238,7 +241,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   const handleUpdateDepartment = async (deptId: string) => {
     setShowEditDialogId(null);
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/departments/${deptId}`, {
+      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/departments/${deptId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: editDeptName, hod: editDeptHOD }),
@@ -256,7 +259,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     if (!newRegulationCode.trim()) return toast.error("Regulation code is required");
     setCreatingRegulation(true);
     try {
-      const res = await fetch("http://localhost:5000/api/auth/create-regulation", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/create-regulation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: newRegulationCode }),
@@ -279,7 +282,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     if (!selectedRegulation) return;
     setIsDeletingRegulation(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/regulations/${encodeURIComponent(selectedRegulation)}`, {
+      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/regulations/${encodeURIComponent(selectedRegulation)}`, {
         method: "DELETE",
       });
       const data = await res.json();
@@ -299,7 +302,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   const handleCreateDepartment = async () => {
     if (!newDeptName.trim()) return toast.error("Department name is required");
     try {
-      const res = await fetch("http://localhost:5000/api/auth/create-department", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/create-department", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newDeptName.trim(), hodId: selectedHodId || undefined }),
@@ -341,7 +344,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
       const deptName = dept?.name ?? "";
 
       // 1) Create or upgrade HOD user
-      const createRes = await fetch("http://localhost:5000/api/auth/assign-hod", {
+      const createRes = await fetch("https://csms-x9aw.onrender.com/api/auth/assign-hod", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -360,7 +363,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
       if (!newHodId) throw new Error("No HOD id returned");
 
       // 2) Assign/replace HOD for department
-      const deptRes = await fetch("http://localhost:5000/api/auth/change-hod", {
+      const deptRes = await fetch("https://csms-x9aw.onrender.com/api/auth/change-hod", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -395,6 +398,33 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
         return "bg-gray-100 text-gray-800"
     }
   }
+
+  const downloadCommonSubjectsPDF = async () => {
+  const element = document.getElementById("common-subjects-table")
+  if (!element) {
+    toast.error("Table not found")
+    return
+  }
+
+  const canvas = await html2canvas(element, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: "#ffffff",
+  })
+
+  const imgData = canvas.toDataURL("image/png")
+  const pdf = new jsPDF("l", "mm", "a4") // landscape
+
+  const pdfWidth = pdf.internal.pageSize.getWidth()
+  const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+
+  pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight)
+
+  pdf.save(
+    `Common-Subjects-${selectedCommonRegulation}-Sem-${selectedCommonSemester}.pdf`
+  )
+}
+
 
   const renderContent = () => {
     switch (activeTab) {
@@ -716,16 +746,16 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
         const getColorForTitle = (title: string, titleColorMap: Map<string, string>) => {
           if (!titleColorMap.has(title)) {
             const colors = [
-              'bg-blue-100 text-blue-800 border-blue-300',
-              'bg-green-100 text-green-800 border-green-300',
-              'bg-yellow-100 text-yellow-800 border-yellow-300',
-              'bg-red-100 text-red-800 border-red-300',
-              'bg-indigo-100 text-indigo-800 border-indigo-300',
-              'bg-pink-100 text-pink-800 border-pink-300',
-              'bg-teal-100 text-teal-800 border-teal-300',
-              'bg-orange-100 text-orange-800 border-orange-300',
-              'bg-cyan-100 text-cyan-800 border-cyan-300',
-              'bg-lime-100 text-lime-800 border-lime-300',
+              'bg-blue-400 text-blue-800 border-blue-300',
+              'bg-green-400 text-green-800 border-green-300',
+              'bg-yellow-400 text-yellow-800 border-yellow-300',
+              'bg-red-400 text-red-800 border-red-300',
+              'bg-indigo-400 text-indigo-800 border-indigo-300',
+              'bg-pink-400 text-pink-800 border-pink-300',
+              'bg-teal-400 text-teal-800 border-teal-300',
+              'bg-orange-400 text-orange-800 border-orange-300',
+              'bg-cyan-400 text-cyan-800 border-cyan-300',
+              'bg-lime-400 text-lime-800 border-lime-300',
             ];
             const colorIndex = titleColorMap.size % colors.length;
             titleColorMap.set(title, colors[colorIndex]);
@@ -817,90 +847,146 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
               </>
             ) : (
               <>
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4 no-print">
                   <div>
                     <h2 className="text-2xl font-semibold text-purple-700">
                       Regulation {selectedCommonRegulation} - Semester {selectedCommonSemester}
                     </h2>
                     <p className="text-muted-foreground">
-                      Course codes with matching titles across departments are shown in the same color
+                      Common subjects across departments are highlighted with the same color
                     </p>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setSelectedCommonSemester(null)}
-                  >
-                    ← Back to Semesters
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={downloadCommonSubjectsPDF}>
+                      <Download className="w-4 h-4 mr-2" />
+                      Download PDF
+                    </Button>
+
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setSelectedCommonSemester(null)}
+                    >
+                      ← Back to Semesters
+                    </Button>
+                  </div>
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Object.entries(subjectsByDepartment)
-                    .sort(([deptA], [deptB]) => deptA.localeCompare(deptB))
-                    .map(([department, subjects]) => (
-                    <Card key={department} className="shadow-md">
-                      <CardHeader className="bg-purple-50 border-b">
-                        <CardTitle className="text-lg text-purple-700">{department}</CardTitle>
-                        <CardDescription>{subjects.length} course(s)</CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-4">
-                        <div className="flex flex-wrap gap-2">
-                          {subjects
-                            .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
-                            .map((subject: any) => {
-                            const isCommon = commonTitles.has(subject.title);
-                            const colorClass = isCommon 
-                              ? getColorForTitle(subject.title, titleColorMap)
-                              : 'bg-gray-100 text-gray-800 border-gray-300';
-                            
-                            return (
-                              <Badge
-                                key={subject._id}
-                                className={`${colorClass} border px-3 py-1 text-sm font-medium`}
-                                title={`${subject.title} (${subject.code})`}
-                              >
-                                {subject.code}
-                              </Badge>
-                            );
-                          })}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-                
-                {commonTitles.size > 0 && (
-                  <Card className="mt-6 bg-blue-50 border-blue-200">
-                    <CardHeader>
-                      <CardTitle className="text-lg text-blue-700">Common Subjects Legend</CardTitle>
-                      <CardDescription>Subjects with matching titles across departments</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
+                <div id="common-subjects-table" className="overflow-x-auto">
+                  <div className="flex justify-center my-5">
+                    <h1><b>Common Subjects Report - Regulation {selectedCommonRegulation} - Semester {selectedCommonSemester}</b></h1>
+                  </div>
+                  <div className="flex justify-center mt-5 mb-14">
+                  <table>
+                    <thead>
+                      <tr>
+                        {Object.keys(subjectsByDepartment)
+                          .sort((a, b) => a.localeCompare(b))
+                          .map((department) => (
+                            <th className=" bg-black text-white border border-white px-3 py-2" key={department}>{department}</th>
+                          ))
+                        }
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        // Get the maximum number of subjects in any department
+                        const maxSubjects = Math.max(
+                          ...Object.values(subjectsByDepartment).map((subjects: any) => subjects.length)
+                        );
+                        
+                        // Create rows based on max subjects
+                        const rows = [];
+                        for (let i = 0; i < maxSubjects; i++) {
+                          rows.push(
+                            <tr key={i}>
+                              {Object.entries(subjectsByDepartment)
+                                .sort(([deptA], [deptB]) => deptA.localeCompare(deptB))
+                                .map(([department, subjects]) => {
+                                  const sortedSubjects = subjects.sort((a: any, b: any) => 
+                                    (a.displayOrder || 0) - (b.displayOrder || 0)
+                                  );
+                                  const subject = sortedSubjects[i];
+                                  
+                                  if (!subject) {
+                                    return <td key={department}></td>;
+                                  }
+                                  
+                                  const isCommon = commonTitles.has(subject.title);
+                                  const colorClass = isCommon 
+                                    ? getColorForTitle(subject.title, titleColorMap)?.split(' ')[0] || 'bg-gray-400'
+                                    : 'bg-gray-400';
+                                  
+                                  return (
+                                    <td
+                                      key={department}
+                                      title={subject.title}
+                                      style={{
+                                        border: '1px solid black',
+                                        verticalAlign: 'middle',
+                                        textAlign: 'center'
+                                      }}
+                                      className={colorClass}
+                                    >
+                                    <div
+                                      style={{
+                                        fontWeight: '600',
+                                        fontSize: '12px',
+                                        lineHeight: '1.4',
+                                        padding: '6px 4px'
+                                      }}
+                                    >
+                                      {subject.code}
+                                    </div>
+                                  </td>
+
+                                  );
+                                })
+                              }
+                            </tr>
+                          );
+                        }
+                        return rows;
+                      })()}
+                    </tbody>
+                  </table>
+                  </div>
+                  
+                  {commonTitles.size > 0 && (
+                    <div className="legend">
+                      <div className="flex justify-center my-5">
+                      <h3><b>Common Subjects Legend</b></h3>
+                      </div>
+                      <div style={{display: 'grid', placeItems:"center", gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '10px'}}>
                         {Array.from(commonTitles).sort().map((title) => {
-                          const colorClass = getColorForTitle(title, titleColorMap);
+                          const colorClass = getColorForTitle(title, titleColorMap)?.split(' ')[0] || 'bg-gray-400';
                           const subjectsWithTitle = commonSubjects.filter((s: any) => s.title === title);
-                          const departments = [...new Set(subjectsWithTitle.map((s: any) => s.department))];
+                          const departments = [...new Set(subjectsWithTitle.map((s: any) => s.department))].sort();
                           const courseCodes = [...new Set(subjectsWithTitle.map((s: any) => s.code))];
                           
                           return (
-                            <div key={title} className="flex items-start gap-3">
-                              <Badge className={`${colorClass} border px-3 py-1`}>
+                            <div key={title} style={{display: 'flex', alignItems: 'center', gap: '8px', padding: '8px'}}>
+                              <div style={{
+                                minWidth: '60px',
+                                padding: '6px 10px',
+                                textAlign: 'center',
+                                fontWeight: 'bold',
+                                borderRadius: '4px',
+                                fontSize: '12px'
+                              }} className={colorClass}>
                                 {courseCodes.join(', ')}
-                              </Badge>
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">{title}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  Found in: {departments.join(', ')}
-                                </p>
+                              </div>
+                              <div style={{flex: 1}}>
+                                <div style={{fontWeight: 'bold', fontSize: '13px'}}>{title}</div>
+                                <div style={{fontSize: '11px', color: '#6b7280'}}>
+                                  Departments: {departments.join(', ')}
+                                </div>
                               </div>
                             </div>
                           );
                         })}
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </div>

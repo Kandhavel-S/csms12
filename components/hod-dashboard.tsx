@@ -185,8 +185,8 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   useEffect(() => {
     const fetchDropdownUsers = async () => {
       const [facultyRes, expertRes] = await Promise.all([
-        fetch("http://localhost:5000/api/auth/by-role?role=faculty"),
-        fetch("http://localhost:5000/api/auth/by-role?role=subject-expert"),
+        fetch("https://csms-x9aw.onrender.com/api/auth/by-role?role=faculty"),
+        fetch("https://csms-x9aw.onrender.com/api/auth/by-role?role=subject-expert"),
       ]);
 
       const facultyNames = await facultyRes.json();
@@ -217,7 +217,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
       params.append("regulationId", selectedRegulationId);
       params.append("department", user.department || "");
       
-      const res = await fetch(`http://localhost:5000/api/auth/verticals?${params.toString()}`);
+      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/verticals?${params.toString()}`);
       const data = await res.json();
       
       if (res.ok) {
@@ -257,7 +257,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         return;
       }
 
-      const res = await fetch("http://localhost:5000/api/auth/verticals", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/verticals", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -295,7 +295,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   
   const fetchSubjects = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/get-subjects?department=${user.department}`);
+      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/get-subjects?department=${user.department}`);
       const data = await res.json();
       setSubjects(data);
       console.log("📦 Subjects fetched:", data);
@@ -314,7 +314,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         throw new Error("Authentication required. Please log in again.");
       }
 
-      const res = await fetch("http://localhost:5000/api/auth/hod/regulations", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -425,7 +425,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
       }
 
       // Create the regulation with version 1
-      const res = await fetch("http://localhost:5000/api/auth/hod/regulations/save-draft", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/hod/regulations/save-draft", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -481,7 +481,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         throw new Error("Authentication required. Please log in again.");
       }
 
-      const res = await fetch(`http://localhost:5000/api/auth/hod/regulation-version/${versionId}`, {
+      const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/hod/regulation-version/${versionId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -559,7 +559,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
 
       // Fetch all subjects (no filter) to check across departments
       const res = await fetch(
-        `http://localhost:5000/api/auth/get-subjects`
+        `https://csms-x9aw.onrender.com/api/auth/get-subjects`
       );
       const allSubjects = await res.json();
       
@@ -622,7 +622,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
       
       // Fetch all subjects to check across departments
       const checkRes = await fetch(
-        `http://localhost:5000/api/auth/get-subjects`
+        `https://csms-x9aw.onrender.com/api/auth/get-subjects`
       );
       const allSubjects = await checkRes.json();
       
@@ -688,7 +688,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
 
       console.log("Sending request body:", requestBody);
 
-      const res = await fetch("http://localhost:5000/api/auth/add-subject", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/add-subject", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
@@ -738,7 +738,7 @@ const handleConfirmTitleUpdate = async () => {
     }
 
     // Update all subjects with this course code in this regulation
-    const updateRes = await fetch("http://localhost:5000/api/auth/update-course-titles", {
+    const updateRes = await fetch("https://csms-x9aw.onrender.com/api/auth/update-course-titles", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -790,7 +790,7 @@ const handleCancelTitleUpdate = () => {
     if (!selectedSubjectId || !selectedFaculty) return;
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/update-fac-exp", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/update-fac-exp", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -817,7 +817,7 @@ const handleCancelTitleUpdate = () => {
     if (!selectedSubjectId || !selectedExpert) return;
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/update-fac-exp", {
+      const res = await fetch("https://csms-x9aw.onrender.com/api/auth/update-fac-exp", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -856,7 +856,7 @@ const handleCancelTitleUpdate = () => {
   if (!selectedSubjectId) return;
 
   try {
-    const res = await fetch(`http://localhost:5000/api/auth/edit-subjects/${selectedSubjectId}`, {
+    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/edit-subjects/${selectedSubjectId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -902,7 +902,7 @@ const handleCancelTitleUpdate = () => {
           throw new Error("No token found. Please log in again.");
         }
 
-        const res = await fetch("http://localhost:5000/api/auth/assign-faculty", {
+        const res = await fetch("https://csms-x9aw.onrender.com/api/auth/assign-faculty", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -939,7 +939,7 @@ const handleCancelTitleUpdate = () => {
 
     const handleApprove = async (subjectId: string) => {
   try {
-    const res = await fetch(`http://localhost:5000/api/auth/subject/${subjectId}/approve`, {
+    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/subject/${subjectId}/approve`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
     });
@@ -965,7 +965,7 @@ const handleCancelTitleUpdate = () => {
 
 const handleReject = async (subjectId: string) => {
   try {
-    const res = await fetch(`http://localhost:5000/api/auth/subject/${subjectId}/reject`, {
+    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/subject/${subjectId}/reject`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
     });
@@ -993,7 +993,7 @@ const handleDeleteSubject = async () => {
 
   try {
     const token = localStorage.getItem("token");
-    const res = await fetch(`http://localhost:5000/api/auth/delete-subject/${subjectToDelete.id}`, {
+    const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/delete-subject/${subjectToDelete.id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -1027,7 +1027,7 @@ const handleDeleteRegulation = async () => {
   try {
     const token = localStorage.getItem("token");
     const res = await fetch(
-      `http://localhost:5000/api/auth/regulations/${regulationToDelete.regulationCode}`,
+      `https://csms-x9aw.onrender.com/api/auth/regulations/${regulationToDelete.regulationCode}`,
       {
         method: "DELETE",
         headers: {
@@ -1067,7 +1067,7 @@ const handleRenameRegulation = async () => {
   try {
     const token = localStorage.getItem("token");
     const res = await fetch(
-      `http://localhost:5000/api/auth/regulations/${regulationToRename.regulationCode}/rename`,
+      `https://csms-x9aw.onrender.com/api/auth/regulations/${regulationToRename.regulationCode}/rename`,
       {
         method: "PUT",
         headers: {
@@ -1315,7 +1315,7 @@ const handleLeaveWithoutSaving = () => {
           
           setIsSavingOrder(true);
           try {
-            const response = await fetch('http://localhost:5000/api/auth/update-subject-order', {
+            const response = await fetch('https://csms-x9aw.onrender.com/api/auth/update-subject-order', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -1487,7 +1487,7 @@ const handleLeaveWithoutSaving = () => {
                           onClick={async () => {
                             setCreating(true);
                             try {
-                              const res = await fetch("http://localhost:5000/api/auth/assign-expert", {
+                              const res = await fetch("https://csms-x9aw.onrender.com/api/auth/assign-expert", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
@@ -2481,7 +2481,7 @@ const handleLeaveWithoutSaving = () => {
                         const token = localStorage.getItem("token");
                         const courseTypeValue = selectedElectiveCategory?.includes('Open Electives') ? 'OEC' : 'MC';
                         
-                        const response = await fetch("http://localhost:5000/api/auth/add-subject", {
+                        const response = await fetch("https://csms-x9aw.onrender.com/api/auth/add-subject", {
                           method: "POST",
                           headers: {
                             "Content-Type": "application/json",
@@ -2826,7 +2826,7 @@ const handleLeaveWithoutSaving = () => {
                             <TableCell className="flex flex-wrap gap-2">
                         {subject.syllabusUrl && (
                           <a
-                            href={`http://localhost:5000/api/auth/file/${subject.syllabusUrl}`}
+                            href={`https://csms-x9aw.onrender.com/api/auth/file/${subject.syllabusUrl}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             download
@@ -3036,7 +3036,7 @@ const handleLeaveWithoutSaving = () => {
                               </div>
                               {version.curriculumUrl && (
                                 <a
-                                  href={`http://localhost:5000/api/auth/file/${version.curriculumUrl}`}
+                                  href={`https://csms-x9aw.onrender.com/api/auth/file/${version.curriculumUrl}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >
