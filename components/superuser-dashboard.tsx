@@ -872,9 +872,9 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                 </div>
                 <div id="common-subjects-table" className="overflow-x-auto">
                   <div className="flex justify-center my-5">
-                    <h1><b>Common Subjects Report - Regulation {selectedCommonRegulation} - Semester {selectedCommonSemester}</b></h1>
+                    <h1 className="text-xl font-bold">Common Subjects Report - Regulation {selectedCommonRegulation} - Semester {selectedCommonSemester}</h1>
                   </div>
-                  <div className="flex justify-center mt-5 mb-14">
+                  <div className="flex justify-center my-5">
                   <table>
                     <thead>
                       <tr>
@@ -949,11 +949,14 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                     </tbody>
                   </table>
                   </div>
+                  <div className="flex justify-center mb-14">
+                    <h4 className="text-sm font-semibold bg-gray-300 rounded px-2 py-1">* Gray Colour Represents Uncommon Subjects</h4>
+                  </div>
                   
                   {commonTitles.size > 0 && (
                     <div className="legend">
                       <div className="flex justify-center my-5">
-                      <h3><b>Common Subjects Legend</b></h3>
+                      <h3 className="text-xl font-bold">Common Subjects Legend</h3>
                       </div>
                       <div style={{display: 'grid', placeItems:"center", gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '10px'}}>
                         {Array.from(commonTitles).sort().map((title) => {

@@ -1393,6 +1393,311 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
     }
   };
 
+  // Download two files: 1) main curriculum + appendix tables, 2) merged syllabi
+  const handleDownloadMainAndMergedSyllabi = async () => {
+    setIsGenerating(true);
+    try {
+      const data = transformFormFields(formFields);
+
+      // 1) Generate curriculum docx (from template)
+      const docxBlob = await generateDocxFromTemplate('/templates/Curriculum-Template.docx', data);
+      const buffer1 = await docxBlob.arrayBuffer();
+
+      // 2) Build the full appendices document (APPENDIX A/B/C with tables)
+      const electives = formFields.professionalElectives;
+      const columnWidth = 2460;
+      const maxRows = Math.max(...electives.map(col => col.cells.length));
+
+      const headerRow = new TableRow({
+        height: { value: 0, rule: HeightRule.AUTO },
+        children: electives.map(col =>
+          new TableCell({
+            width: { size: columnWidth, type: WidthType.DXA },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    text: col.verticalNumber || '',
+                    bold: true,
+                    font: 'Cambria',
+                    size: 22,
+                  }),
+                ],
+              }),
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({ text: col.verticalName || '', bold: true, font: 'Cambria', size: 22 }),
+                ],
+              }),
+            ],
+          })
+        ),
+      });
+
+      const dataRows = Array.from({ length: maxRows }, (_, i) =>
+        new TableRow({
+          height: { value: 0, rule: HeightRule.AUTO },
+          children: electives.map(col => {
+            const c = col.cells[i] || { courseCode: '', courseTitle: '' };
+            return new TableCell({
+              width: { size: columnWidth, type: WidthType.DXA },
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({ text: c.courseCode, bold: true, font: 'Cambria', size: 22 }),
+                  ],
+                }),
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [new TextRun({ text: c.courseTitle, font: 'Cambria', size: 22 })],
+                }),
+              ],
+            });
+          })
+        })
+      );
+
+      const electivesTable = new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: [headerRow, ...dataRows],
+      });
+
+      const headingA = new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new TextRun({
+            text: 'APPENDIX A: PROFESSIONAL ELECTIVE COURSES VERTICALS',
+            bold: true,
+            font: 'Cambria',
+            size: 22,
+          }),
+        ],
+      });
+
+      const noteA = new Paragraph({
+        spacing: { before: 400, after: 200 },
+        children: [
+          new TextRun({
+            text:
+              '*Students are permitted to choose all the Professional Electives from a particular vertical or from different verticals. However, Students are restricted to select from not more than 2 verticals.',
+            font: 'Cambria',
+            size: 22,
+          }),
+        ],
+      });
+
+      const openElectiveTables = formFields.openElectiveTables.map((table, index) => {
+        const rows = table.courses.map(c =>
+          new TableRow({
+            height: { value: 0, rule: HeightRule.AUTO },
+            children: [
+              new TableCell({
+                width: { size: 720, type: WidthType.DXA },
+                children: [
+                  new Paragraph({ children: [new TextRun({ text: c.sno, font: 'Cambria', size: 22 })] }),
+                ],
+              }),
+              new TableCell({
+                width: { size: 2160, type: WidthType.DXA },
+                children: [new Paragraph({ children: [new TextRun({ text: c.courseCode, font: 'Cambria', size: 22 })] })],
+              }),
+              new TableCell({
+                width: { size: 2880, type: WidthType.DXA },
+                children: [new Paragraph({ children: [new TextRun({ text: c.courseTitle, font: 'Cambria', size: 22 })] })],
+              }),
+              new TableCell({
+                width: { size: 720, type: WidthType.DXA },
+                children: [new Paragraph({ children: [new TextRun({ text: c.l, font: 'Cambria', size: 22 })] })],
+              }),
+              new TableCell({
+                width: { size: 720, type: WidthType.DXA },
+                children: [new Paragraph({ children: [new TextRun({ text: c.t, font: 'Cambria', size: 22 })] })],
+              }),
+              new TableCell({
+                width: { size: 720, type: WidthType.DXA },
+                children: [new Paragraph({ children: [new TextRun({ text: c.p, font: 'Cambria', size: 22 })] })],
+              }),
+              new TableCell({
+                width: { size: 720, type: WidthType.DXA },
+                children: [new Paragraph({ children: [new TextRun({ text: c.c, font: 'Cambria', size: 22 })] })],
+              }),
+            ],
+          })
+        );
+        const header = new TableRow({
+          height: { value: 0, rule: HeightRule.AUTO },
+          children: [
+            new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'S.No.', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 2160, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Course Code', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 2880, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Course Title', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'L', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'T', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'P', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'C', bold: true, font: 'Cambria', size: 22 })] })] }),
+          ],
+        });
+        const totalRow = new TableRow({
+          height: { value: 0, rule: HeightRule.AUTO },
+          children: [
+            new TableCell({
+              width: { size: 5040, type: WidthType.DXA },
+              children: [new Paragraph({ children: [new TextRun({ text: 'Total Credits', bold: true, font: 'Cambria', size: 22 })] })],
+            }),
+            new TableCell({
+              width: { size: 720, type: WidthType.DXA },
+              children: [new Paragraph({ children: [new TextRun({ text: String(calculateTotalCredits(table.courses)), font: 'Cambria', size: 22 })] })],
+            }),
+          ],
+        });
+        return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...rows, totalRow] });
+      });
+
+      const mandatoryCourseTables = formFields.mandatoryCourseTables.map((table, index) => {
+        const rows = table.courses.map(c =>
+          new TableRow({
+            height: { value: 0, rule: HeightRule.AUTO },
+            children: [
+              new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: c.sno, font: 'Cambria', size: 22 })] })] }),
+              new TableCell({ width: { size: 2160, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: c.courseCode, font: 'Cambria', size: 22 })] })] }),
+              new TableCell({ width: { size: 2880, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: c.courseTitle, font: 'Cambria', size: 22 })] })] }),
+              new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: c.l, font: 'Cambria', size: 22 })] })] }),
+              new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: c.t, font: 'Cambria', size: 22 })] })] }),
+              new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: c.p, font: 'Cambria', size: 22 })] })] }),
+              new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: c.c, font: 'Cambria', size: 22 })] })] }),
+            ],
+          })
+        );
+        const header = new TableRow({
+          height: { value: 0, rule: HeightRule.AUTO },
+          children: [
+            new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'S.No.', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 2160, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Course Code', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 2880, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Course Title', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'L', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'T', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'P', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'C', bold: true, font: 'Cambria', size: 22 })] })] }),
+          ],
+        });
+        const totalRow = new TableRow({
+          height: { value: 0, rule: HeightRule.AUTO },
+          children: [
+            new TableCell({ width: { size: 5040, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Total Credits', bold: true, font: 'Cambria', size: 22 })] })] }),
+            new TableCell({ width: { size: 720, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: String(calculateTotalCredits(table.courses)), font: 'Cambria', size: 22 })] })] }),
+          ],
+        });
+        return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [header, ...rows, totalRow] });
+      });
+
+      const electivesDoc = new Document({
+        sections: [{
+          children: [
+            headingA,
+            electivesTable,
+            noteA,
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new TextRun({
+                  text: 'APPENDIX B: OPEN ELECTIVES',
+                  bold: true,
+                  font: 'Cambria',
+                  size: 22,
+                }),
+              ],
+            }),
+            ...openElectiveTables.map((table, index) => [
+              new Paragraph({ alignment: AlignmentType.LEFT, children: [new TextRun({ text: `${formFields.openElectiveTables[index].name}`, bold: true, font: 'Cambria', size: 22 })], spacing: { before: 400 } }),
+              table,
+              new Paragraph({ spacing: { before: 400 } }),
+            ]).flat(),
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new TextRun({
+                  text: 'APPENDIX C: MANDATORY COURSES',
+                  bold: true,
+                  font: 'Cambria',
+                  size: 22,
+                }),
+              ],
+            }),
+            ...mandatoryCourseTables.map((table, index) => [
+              new Paragraph({ alignment: AlignmentType.LEFT, children: [new TextRun({ text: `${formFields.mandatoryCourseTables[index].name}`, bold: true, font: 'Cambria', size: 22 })], spacing: { before: 400 } }),
+              table,
+              new Paragraph({ spacing: { before: 400 } }),
+            ]).flat(),
+          ],
+        }],
+      });
+
+      const electivesBlob = await Packer.toBlob(electivesDoc);
+      const buffer2 = await electivesBlob.arrayBuffer();
+
+      // Merge curriculum and appendix into main curriculum file
+      const mergerMain = new DocxMerger();
+      await mergerMain.merge([buffer1, buffer2]);
+      const mainBuffer = await mergerMain.save();
+      const mainBlob = new Blob([mainBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      const mainFileName = formFields.regulation && formFields.branchName
+        ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Main_Curriculum.docx`
+        : 'main_curriculum.docx';
+      saveAs(mainBlob, mainFileName);
+
+      // 3) Collect and merge all syllabus docx files into merged_syllabi.docx
+      const allSemesterCourses = [
+        ...formFields.semester1Courses,
+        ...formFields.semester2Courses,
+        ...formFields.semester3Courses,
+        ...formFields.semester4Courses,
+        ...formFields.semester5Courses,
+        ...formFields.semester6Courses,
+        ...formFields.semester7Courses,
+        ...formFields.semester8Courses,
+      ];
+
+      const allElectiveCourses = formFields.professionalElectives.flatMap(col => col.cells);
+      const allOpenElectiveCourses = formFields.openElectiveTables.flatMap(table => table.courses);
+      const allMandatoryCourses = formFields.mandatoryCourseTables.flatMap(table => table.courses);
+
+      const syllabusFiles = [
+        ...allSemesterCourses.map(course => course.syllabusFile),
+        ...allElectiveCourses.map(cell => cell.syllabusFile),
+        ...allOpenElectiveCourses.map(course => course.syllabusFile),
+        ...allMandatoryCourses.map(course => course.syllabusFile),
+      ].filter((file): file is File => !!file);
+
+      const syllabusBuffers: ArrayBuffer[] = await Promise.all(
+        syllabusFiles
+          .filter(file => file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+          .map(file => file.arrayBuffer())
+      );
+
+      if (syllabusFiles.length > 0 && syllabusBuffers.length === 0) {
+        toast.error('No DOCX syllabus files found. PDFs were skipped.');
+      }
+
+      if (syllabusBuffers.length > 0) {
+        const mergerSyll = new DocxMerger();
+        await mergerSyll.merge(syllabusBuffers);
+        const syllBuffer = await mergerSyll.save();
+        const syllBlob = new Blob([syllBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        saveAs(syllBlob, 'merged_syllabi.docx');
+        toast.success('✔️ Both files downloaded');
+      } else {
+        toast.success('✔️ Main curriculum downloaded (no DOCX syllabi to merge)');
+      }
+    } catch (err) {
+      console.error('Error generating downloads:', err);
+      toast.error('❌ Failed to generate download(s)');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleAutofill = async () => {
     if (!formFields.regulation.trim()) {
       toast.error("Please enter a regulation code first");
@@ -2545,12 +2850,19 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
             <div>
               {renderMandatoryCourseInputs()}
               <div className="mt-6 flex justify-end gap-3">
-                <Button
+                {/* <Button
                   onClick={handleGeneratePDF}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                   disabled={isGenerating}
                 >
                   {isGenerating ? 'Generating...' : 'Generate Curriculum DOCX'}
+                </Button> */}
+                <Button
+                  onClick={handleDownloadMainAndMergedSyllabi}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? 'Generating...' : 'Download Curriculum + Merged Syllabi'}
                 </Button>
                 <Button
                   onClick={() => setIsNewVersionDialogOpen(true)}
