@@ -358,7 +358,9 @@ const CreateSyllabus = () => {
       const url = window.URL.createObjectURL(docxBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'Generated_Syllabus.docx';
+      // Create filename from subject name and course code
+      const fileName = `${subject}_${title}.docx`.replace(/[/\\?%*:|"<>]/g, '-');
+      link.download = fileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

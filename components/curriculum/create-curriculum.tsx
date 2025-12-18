@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import toast from 'react-hot-toast';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Loader2 } from 'lucide-react';
 import { generateDocxFromTemplate } from '../../utils/DocxFromTemplate';
 import { DocxMerger } from '@spfxappdev/docxmerger';
 import {
@@ -518,7 +518,8 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
 }) => {
   const [allSubjects, setAllSubjects] = useState<{ _id: string; title: string; code: string; syllabusUrl?: string }[]>([]);
   const [regulations, setRegulations] = useState<any[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingFull, setIsGeneratingFull] = useState(false);
+  const [isGeneratingMainAndSyllabi, setIsGeneratingMainAndSyllabi] = useState(false);
   const [activeSection, setActiveSection] = useState<string>('basic');
   const [manualUploadFile, setManualUploadFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -1052,7 +1053,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
 };
 
   const handleGeneratePDF = async () => {
-    setIsGenerating(true);
+    setIsGeneratingFull(true);
     try {
       const data = transformFormFields(formFields);
       let docxBlob = await generateDocxFromTemplate('/templates/Curriculum-Template.docx', data);
@@ -1389,13 +1390,13 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       console.error('Error generating curriculum:', error);
       toast.error('❌ Failed to generate document');
     } finally {
-      setIsGenerating(false);
+      setIsGeneratingFull(false);
     }
   };
 
   // Download two files: 1) main curriculum + appendix tables, 2) merged syllabi
   const handleDownloadMainAndMergedSyllabi = async () => {
-    setIsGenerating(true);
+    setIsGeneratingMainAndSyllabi(true);
     try {
       const data = transformFormFields(formFields);
 
@@ -1643,8 +1644,8 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       const mainBuffer = await mergerMain.save();
       const mainBlob = new Blob([mainBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       const mainFileName = formFields.regulation && formFields.branchName
-        ? `${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}_Main_Curriculum.docx`
-        : 'main_curriculum.docx';
+        ? `Main_Curriculum_${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}.docx`
+        : 'Main_Curriculum.docx';
       saveAs(mainBlob, mainFileName);
 
       // 3) Collect and merge all syllabus docx files into merged_syllabi.docx
@@ -1685,7 +1686,10 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         await mergerSyll.merge(syllabusBuffers);
         const syllBuffer = await mergerSyll.save();
         const syllBlob = new Blob([syllBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-        saveAs(syllBlob, 'merged_syllabi.docx');
+        const mergedFileName = formFields.regulation && formFields.branchName
+        ? `Syllabi_${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}.docx`
+        : 'Merged_Syllabi.docx';
+        saveAs(syllBlob, mergedFileName);
         toast.success('✔️ Both files downloaded');
       } else {
         toast.success('✔️ Main curriculum downloaded (no DOCX syllabi to merge)');
@@ -1694,7 +1698,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       console.error('Error generating downloads:', err);
       toast.error('❌ Failed to generate download(s)');
     } finally {
-      setIsGenerating(false);
+      setIsGeneratingMainAndSyllabi(false);
     }
   };
 
@@ -2644,6 +2648,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
               disabled={!formFields.regulation || isAutofilling}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
+              {isAutofilling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isAutofilling ? "Autofilling..." : "Autofill"}
             </Button>
             <Button
@@ -2652,6 +2657,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
               className="bg-purple-600 hover:bg-purple-700 text-white"
               data-save-curriculum-button
             >
+              {isSavingDraft && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isSavingDraft ? "Saving..." : "Save"}
             </Button>
           </div>
@@ -2850,25 +2856,28 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
             <div>
               {renderMandatoryCourseInputs()}
               <div className="mt-6 flex justify-end gap-3">
-                {/* <Button
+                <Button
                   onClick={handleGeneratePDF}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
-                  disabled={isGenerating}
+                  disabled={isGeneratingFull}
                 >
-                  {isGenerating ? 'Generating...' : 'Generate Curriculum DOCX'}
-                </Button> */}
+                  {isGeneratingFull && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isGeneratingFull ? 'Generating...' : 'Generate Curriculum DOCX'}
+                </Button>
                 <Button
                   onClick={handleDownloadMainAndMergedSyllabi}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                  disabled={isGenerating}
+                  disabled={isGeneratingMainAndSyllabi}
                 >
-                  {isGenerating ? 'Generating...' : 'Download Curriculum + Merged Syllabi'}
+                  {isGeneratingMainAndSyllabi && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isGeneratingMainAndSyllabi ? 'Generating...' : 'Download Curriculum + Merged Syllabi'}
                 </Button>
                 <Button
                   onClick={() => setIsNewVersionDialogOpen(true)}
                   disabled={isCreatingNewVersion}
                   className="bg-green-600 hover:bg-green-700 text-white"
                 >
+                  {isCreatingNewVersion && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isCreatingNewVersion ? "Creating..." : "Save as New Version"}
                 </Button>
               </div>
@@ -2883,6 +2892,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
                   <AlertDialogFooter>
                     <AlertDialogCancel disabled={isCreatingNewVersion}>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handleSaveAsNewVersion} disabled={isCreatingNewVersion}>
+                      {isCreatingNewVersion && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       {isCreatingNewVersion ? 'Creating...' : 'Create New Version'}
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -2949,6 +2959,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
                     disabled={!manualUploadFile || isUploading}
                     className="bg-purple-600 hover:bg-purple-700 text-white"
                   >
+                    {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {isUploading ? "Uploading..." : "Send Curriculum DOCX"}
                   </Button>
                 </div>

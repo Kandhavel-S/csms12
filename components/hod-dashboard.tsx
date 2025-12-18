@@ -119,7 +119,6 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     email: "",
     password: "",
   });
-  const [creating, setCreating] = useState(false);
   const [facultyList, setFacultyList] = useState<{ _id: string; name: string; email: string }[]>([])
   const [expertList, setExpertList] = useState<{ _id: string; name: string; email: string }[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -152,6 +151,20 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [hasUnsavedCurriculumChanges, setHasUnsavedCurriculumChanges] = useState(false);
   const [isLeaveCurriculumDialogOpen, setIsLeaveCurriculumDialogOpen] = useState(false);
   const [pendingTab, setPendingTab] = useState<string | null>(null);
+  const [isAddingSubject, setIsAddingSubject] = useState(false);
+  const [isUpdatingSubject, setIsUpdatingSubject] = useState(false);
+  const [isCreatingFaculty, setIsCreatingFaculty] = useState(false);
+  const [isCreatingExpert, setIsCreatingExpert] = useState(false);
+  const [isApprovingSubject, setIsApprovingSubject] = useState<string | null>(null);
+  const [isRejectingSubject, setIsRejectingSubject] = useState<string | null>(null);
+  const [isSavingFaculty, setIsSavingFaculty] = useState(false);
+  const [isSavingExpert, setIsSavingExpert] = useState(false);
+  const [isDeletingSubject, setIsDeletingSubject] = useState(false);
+  const [isDeletingRegulation, setIsDeletingRegulation] = useState(false);
+  const [isAddingElectiveSubject, setIsAddingElectiveSubject] = useState(false);
+  const [isCreatingVertical, setIsCreatingVertical] = useState(false);
+  const [approveSubjectId, setApproveSubjectId] = useState<string | null>(null);
+  const [rejectSubjectId, setRejectSubjectId] = useState<string | null>(null);
   const [courseCodeWarning, setCourseCodeWarning] = useState<string>("")
   const [showFacultyPassword, setShowFacultyPassword] = useState(false)
   const [showExpertPassword, setShowExpertPassword] = useState(false)
@@ -248,6 +261,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
       return;
     }
 
+    setIsCreatingVertical(true);
     try {
       const token = localStorage.getItem("token");
       const selectedReg = regulations.find(r => r.versions[0]?._id === selectedRegulationId);
@@ -285,6 +299,8 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     } catch (error: any) {
       console.error("Error creating vertical:", error);
       toast.error(error.message || "Failed to create vertical");
+    } finally {
+      setIsCreatingVertical(false);
     }
   };
   
@@ -659,6 +675,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
         return;
       }
 
+      setIsAddingSubject(true);
       // Get the next display order for this semester and department
       const semesterSubjects = existingSubjects.filter(
         (s: Subject) => s.semester === selectedSemester && s.department === user.department
@@ -717,6 +734,8 @@ export default function HODDashboard({ user }: HODDashboardProps) {
     } catch (err) {
       console.error("Add subject failed:", err);
       toast.error("Failed to add subject");
+    } finally {
+      setIsAddingSubject(false);
     }
   } else {
     toast.error("Please fill all fields including regulation");
@@ -789,6 +808,7 @@ const handleCancelTitleUpdate = () => {
   const handleSaveFaculty = async () => {
     if (!selectedSubjectId || !selectedFaculty) return;
 
+    setIsSavingFaculty(true);
     try {
       const res = await fetch("https://csms-x9aw.onrender.com/api/auth/update-fac-exp", {
         method: "PUT",
@@ -806,8 +826,12 @@ const handleCancelTitleUpdate = () => {
 
       console.log("✅ Faculty assigned:", data);
       fetchSubjects(); // re-fetch subjects from DB
+      toast.success("Faculty assigned successfully");
     } catch (err) {
       console.error("Error assigning faculty:", err);
+      toast.error("Failed to assign faculty");
+    } finally {
+      setIsSavingFaculty(false);
     }
 
     setIsFacultyDialogOpen(false);
@@ -816,6 +840,7 @@ const handleCancelTitleUpdate = () => {
   const handleSaveExpert = async () => {
     if (!selectedSubjectId || !selectedExpert) return;
 
+    setIsSavingExpert(true);
     try {
       const res = await fetch("https://csms-x9aw.onrender.com/api/auth/update-fac-exp", {
         method: "PUT",
@@ -833,8 +858,12 @@ const handleCancelTitleUpdate = () => {
 
       console.log("✅ Expert assigned:", data);
       fetchSubjects(); // re-fetch subjects from DB
+      toast.success("Expert assigned successfully");
     } catch (err) {
       console.error("Error assigning expert:", err);
+      toast.error("Failed to assign expert");
+    } finally {
+      setIsSavingExpert(false);
     }
 
     setIsExpertDialogOpen(false);
@@ -855,6 +884,7 @@ const handleCancelTitleUpdate = () => {
   const handleUpdateSubject = async () => {
   if (!selectedSubjectId) return;
 
+  setIsUpdatingSubject(true);
   try {
     const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/edit-subjects/${selectedSubjectId}`, {
       method: "PUT",
@@ -886,16 +916,19 @@ const handleCancelTitleUpdate = () => {
     setNewSubjectName("");
     setSelectedFaculty(null);
     setSelectedExpert(null);
+    toast.success("Subject updated successfully");
   } catch (err) {
     console.error("Update failed:", err);
-    alert("Error updating subject");
+    toast.error("Error updating subject");
+  } finally {
+    setIsUpdatingSubject(false);
   }
 };
 
 
 
     const assignFaculty = async () => {
-      setCreating(true);
+      setIsCreatingFaculty(true);
       try {
         const token = localStorage.getItem("token");
         if (!token) {
@@ -914,7 +947,7 @@ const handleCancelTitleUpdate = () => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to create faculty");
 
-        alert("Faculty created successfully");
+        toast.success("Faculty created successfully");
         setFacultyForm({
           name: "",
           email: "",
@@ -923,12 +956,13 @@ const handleCancelTitleUpdate = () => {
       } catch (err: unknown) {
         if (err instanceof Error) {
           console.error(err.message);
-          alert(err.message);
+          toast.error(err.message);
         } else {
           console.error("An unexpected error occurred", err);
+          toast.error("An unexpected error occurred");
         }
       } finally {
-        setCreating(false);
+        setIsCreatingFaculty(false);
       }
     };
 
@@ -938,6 +972,7 @@ const handleCancelTitleUpdate = () => {
     };
 
     const handleApprove = async (subjectId: string) => {
+  setIsApprovingSubject(subjectId);
   try {
     const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/subject/${subjectId}/approve`, {
       method: "PUT",
@@ -955,15 +990,18 @@ const handleCancelTitleUpdate = () => {
       )
     );
 
-    alert("Subject approved successfully");
+    toast.success("Subject approved successfully");
   } catch (err) {
     console.error("Error approving subject:", err);
-    alert("Error approving subject");
+    toast.error("Error approving subject");
+  } finally {
+    setIsApprovingSubject(null);
   }
 };
 
 
 const handleReject = async (subjectId: string) => {
+  setIsRejectingSubject(subjectId);
   try {
     const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/subject/${subjectId}/reject`, {
       method: "PUT",
@@ -981,16 +1019,19 @@ const handleReject = async (subjectId: string) => {
       )
     );
 
-    alert("Subject rejected successfully");
+    toast.success("Subject rejected successfully");
   } catch (err) {
     console.error("Error rejecting subject:", err);
-    alert("Error rejecting subject");
+    toast.error("Error rejecting subject");
+  } finally {
+    setIsRejectingSubject(null);
   }
 };
 
 const handleDeleteSubject = async () => {
   if (!subjectToDelete) return;
 
+  setIsDeletingSubject(true);
   try {
     const token = localStorage.getItem("token");
     const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/delete-subject/${subjectToDelete.id}`, {
@@ -1018,12 +1059,15 @@ const handleDeleteSubject = async () => {
   } catch (err: any) {
     console.error("Error deleting subject:", err);
     toast.error(err.message || "Failed to delete subject");
+  } finally {
+    setIsDeletingSubject(false);
   }
 };
 
 const handleDeleteRegulation = async () => {
   if (!regulationToDelete) return;
 
+  setIsDeletingRegulation(true);
   try {
     const token = localStorage.getItem("token");
     const res = await fetch(
@@ -1054,6 +1098,8 @@ const handleDeleteRegulation = async () => {
   } catch (err: any) {
     console.error("Error deleting regulation:", err);
     toast.error(err.message || "Failed to delete regulation");
+  } finally {
+    setIsDeletingRegulation(false);
   }
 };
 
@@ -1426,10 +1472,11 @@ const handleLeaveWithoutSaving = () => {
                         </div>
                         <Button
                           className="w-full bg-purple-600 hover:bg-purple-700"
-                          disabled={creating}
+                          disabled={isCreatingFaculty}
                           onClick={assignFaculty}
                         >
-                          {creating ? "Assigning..." : "Assign Faculty"}
+                          {isCreatingFaculty && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {isCreatingFaculty ? "Creating..." : "Create Faculty"}
                         </Button>
                       </div>
                     </DialogContent>
@@ -1483,9 +1530,9 @@ const handleLeaveWithoutSaving = () => {
                         </div>
                         <Button
                           className="w-full bg-purple-600 hover:bg-purple-700"
-                          disabled={creating}
+                          disabled={isCreatingExpert}
                           onClick={async () => {
-                            setCreating(true);
+                            setIsCreatingExpert(true);
                             try {
                               const res = await fetch("https://csms-x9aw.onrender.com/api/auth/assign-expert", {
                                 method: "POST",
@@ -1501,7 +1548,7 @@ const handleLeaveWithoutSaving = () => {
                               const data = await res.json();
                               if (!res.ok) throw new Error(data.error || "Failed to create expert");
 
-                              alert("Expert added successfully");
+                              toast.success("Expert created successfully");
 
                               setexpertForm({
                                 name: "",
@@ -1510,13 +1557,14 @@ const handleLeaveWithoutSaving = () => {
                               });
                             } catch (err: any) {
                               console.error("Error creating expert:", err.message);
-                              alert("Failed to create expert");
+                              toast.error(err.message || "Failed to create expert");
                             } finally {
-                              setCreating(false);
+                              setIsCreatingExpert(false);
                             }
                           }}
                         >
-                          {creating ? "Creating..." : "Add Expert"}
+                          {isCreatingExpert && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {isCreatingExpert ? "Creating..." : "Add Expert"}
                         </Button>
                       </div>
                     </DialogContent>
@@ -1845,7 +1893,9 @@ const handleLeaveWithoutSaving = () => {
                       }}
                       className="bg-purple-600 hover:bg-purple-700"
                       size="sm"
+                      disabled={isCreatingVertical}
                     >
+                      {isCreatingVertical && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
                       <Plus className="h-4 w-4 mr-1" />
                       Create Vertical
                     </Button>
@@ -2166,8 +2216,9 @@ const handleLeaveWithoutSaving = () => {
                       </div>
                     </>
                   )}
-                  <Button onClick={handleAddSubject} className="w-full bg-purple-600 hover:bg-purple-700">
-                    Add Subject
+                  <Button onClick={handleAddSubject} className="w-full bg-purple-600 hover:bg-purple-700" disabled={isAddingSubject}>
+                    {isAddingSubject && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isAddingSubject ? "Adding..." : "Add Subject"}
                   </Button>
                 </div>
               </DialogContent>
@@ -2230,8 +2281,9 @@ const handleLeaveWithoutSaving = () => {
                     </Select>
                   </div>
 
-                  <Button onClick={handleUpdateSubject} className="w-full bg-purple-600 hover:bg-purple-700">
-                    Update Subject
+                  <Button onClick={handleUpdateSubject} className="w-full bg-purple-600 hover:bg-purple-700" disabled={isUpdatingSubject}>
+                    {isUpdatingSubject && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isUpdatingSubject ? "Updating..." : "Update Subject"}
                   </Button>
                 </div>
               </DialogContent>
@@ -2289,8 +2341,9 @@ const handleLeaveWithoutSaving = () => {
                       </PopoverContent>
                     </Popover>
                   </div>
-                  <Button onClick={handleSaveFaculty} className="w-full bg-purple-600 hover:bg-purple-700">
-                    Assign Faculty
+                  <Button onClick={handleSaveFaculty} className="w-full bg-purple-600 hover:bg-purple-700" disabled={isSavingFaculty}>
+                    {isSavingFaculty && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isSavingFaculty ? "Assigning..." : "Assign Faculty"}
                   </Button>
                 </div>
               </DialogContent>
@@ -2349,8 +2402,9 @@ const handleLeaveWithoutSaving = () => {
                       </PopoverContent>
                     </Popover>
                   </div>
-                  <Button onClick={handleSaveExpert} className="w-full bg-purple-600 hover:bg-purple-700">
-                    Assign Expert
+                  <Button onClick={handleSaveExpert} className="w-full bg-purple-600 hover:bg-purple-700" disabled={isSavingExpert}>
+                    {isSavingExpert && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isSavingExpert ? "Assigning..." : "Assign Expert"}
                   </Button>
                 </div>
               </DialogContent>
@@ -2378,8 +2432,10 @@ const handleLeaveWithoutSaving = () => {
                   <Button
                     variant="destructive"
                     onClick={handleDeleteSubject}
+                    disabled={isDeletingSubject}
                   >
-                    Delete Subject
+                    {isDeletingSubject && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isDeletingSubject ? "Deleting..." : "Delete Subject"}
                   </Button>
                 </div>
               </DialogContent>
@@ -2477,6 +2533,7 @@ const handleLeaveWithoutSaving = () => {
                         return;
                       }
                       
+                      setIsAddingElectiveSubject(true);
                       try {
                         const token = localStorage.getItem("token");
                         const courseTypeValue = selectedElectiveCategory?.includes('Open Electives') ? 'OEC' : 'MC';
@@ -2531,11 +2588,15 @@ const handleLeaveWithoutSaving = () => {
                       } catch (error: any) {
                         console.error("Error adding subject:", error);
                         toast.error(error.message || "Failed to add subject");
+                      } finally {
+                        setIsAddingElectiveSubject(false);
                       }
                     }}
                     className="w-full bg-purple-600 hover:bg-purple-700"
+                    disabled={isAddingElectiveSubject}
                   >
-                    Add Subject
+                    {isAddingElectiveSubject && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isAddingElectiveSubject ? "Adding..." : "Add Subject"}
                   </Button>
                 </div>
               </DialogContent>
@@ -2600,8 +2661,10 @@ const handleLeaveWithoutSaving = () => {
                     <Button
                       className="bg-purple-600 hover:bg-purple-700"
                       onClick={handleConfirmCreateVertical}
+                      disabled={isCreatingVertical}
                     >
-                      Create Vertical
+                      {isCreatingVertical && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {isCreatingVertical ? "Creating..." : "Create Vertical"}
                     </Button>
                   </div>
                 </div>
@@ -2843,25 +2906,21 @@ const handleLeaveWithoutSaving = () => {
                             <Button
                               size="sm"
                               className="bg-green-600 hover:bg-green-700 text-white"
-                              onClick={() => {
-                                if (window.confirm("Are you sure you want to approve this syllabus?")) {
-                                  handleApprove(subject._id);
-                                }
-                              }}
+                              onClick={() => setApproveSubjectId(subject._id)}
+                              disabled={isApprovingSubject === subject._id}
                             >
-                              Approve
+                              {isApprovingSubject === subject._id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                              {isApprovingSubject === subject._id ? "Approving..." : "Approve"}
                             </Button>
 
                             <Button
                               size="sm"
                               variant="destructive"
-                              onClick={() => {
-                                if (window.confirm("Are you sure you want to reject this syllabus?")) {
-                                  handleReject(subject._id);
-                                }
-                              }}
+                              onClick={() => setRejectSubjectId(subject._id)}
+                              disabled={isRejectingSubject === subject._id}
                             >
-                              Reject
+                              {isRejectingSubject === subject._id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                              {isRejectingSubject === subject._id ? "Rejecting..." : "Reject"}
                             </Button>
                           </>
                         )}
@@ -3071,8 +3130,10 @@ const handleLeaveWithoutSaving = () => {
                   <AlertDialogAction
                     onClick={handleDeleteRegulation}
                     className="bg-red-600 hover:bg-red-700"
+                    disabled={isDeletingRegulation}
                   >
-                    Delete
+                    {isDeletingRegulation && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isDeletingRegulation ? "Deleting..." : "Delete"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -3215,6 +3276,58 @@ const handleLeaveWithoutSaving = () => {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleLeaveWithoutSaving}>Leave</AlertDialogCancel>
             <AlertDialogAction onClick={handleSaveAndLeave}>Save Now</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Approve Subject Confirmation Dialog */}
+      <AlertDialog open={approveSubjectId !== null} onOpenChange={(open) => !open && setApproveSubjectId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve Syllabus</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to approve this syllabus? This will mark it as approved and notify the faculty.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (approveSubjectId) {
+                  handleApprove(approveSubjectId);
+                  setApproveSubjectId(null);
+                }
+              }}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Approve
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reject Subject Confirmation Dialog */}
+      <AlertDialog open={rejectSubjectId !== null} onOpenChange={(open) => !open && setRejectSubjectId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject Syllabus</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to reject this syllabus? The faculty will be notified and asked to revise it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (rejectSubjectId) {
+                  handleReject(rejectSubjectId);
+                  setRejectSubjectId(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Reject
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
