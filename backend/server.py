@@ -2,6 +2,8 @@ from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
 from docx import Document
 from docx.shared import Pt
+from docxcompose.composer import Composer
+from docx.enum.text import WD_BREAK
 import requests
 import io
 import os
@@ -48,6 +50,58 @@ def merge_first_syllabus():
         mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         as_attachment=True,
         download_name='merged.docx'
+    )
+
+
+@app.route('/merge-curriculum-syllabi', methods=['POST'])
+def merge_curriculum_syllabi():
+    """Accepts multipart form-data with keys 'main' and 'syllabi' (files).
+    Merges the two DOCX files using docxcompose.Composer and returns the merged file.
+    """
+    # Ensure files present
+    if 'main' not in request.files:
+        return {"error": "Missing 'main' file"}, 400
+
+    main_file = request.files['main']
+    syllabi_file = request.files.get('syllabi')
+
+    # Load main document
+    try:
+        main_doc = Document(io.BytesIO(main_file.read()))
+    except Exception as e:
+        return {"error": f"Failed to read main document: {str(e)}"}, 400
+
+    composer = Composer(main_doc)
+
+    # If a syllabi file is provided, append it
+    if syllabi_file:
+        try:
+            syll_doc = Document(io.BytesIO(syllabi_file.read()))
+            # ensure the appended document starts on a fresh page
+            try:
+                main_doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
+            except Exception:
+                # if adding a page break fails, continue and attempt append anyway
+                pass
+            composer.append(syll_doc)
+        except Exception as e:
+            return {"error": f"Failed to read/append syllabi document: {str(e)}"}, 400
+
+    # Save merged document to buffer
+    merged_buffer = io.BytesIO()
+    try:
+        composer.save(merged_buffer)
+    except Exception as e:
+        return {"error": f"Failed to compose merged document: {str(e)}"}, 500
+
+    merged_buffer.seek(0)
+    download_name = request.form.get('downloadName') or 'Curriculum_With_Syllabi.docx'
+
+    return send_file(
+        merged_buffer,
+        mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        as_attachment=True,
+        download_name=download_name
     )
 
 if __name__ == '__main__':

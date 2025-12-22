@@ -1638,7 +1638,7 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       const electivesBlob = await Packer.toBlob(electivesDoc);
       const buffer2 = await electivesBlob.arrayBuffer();
 
-      // Merge curriculum and appendix into main curriculum file
+      // Merge curriculum and appendix into main curriculum file (client-side)
       const mergerMain = new DocxMerger();
       await mergerMain.merge([buffer1, buffer2]);
       const mainBuffer = await mergerMain.save();
@@ -1646,7 +1646,6 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
       const mainFileName = formFields.regulation && formFields.branchName
         ? `Main_Curriculum_${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}.docx`
         : 'Main_Curriculum.docx';
-      saveAs(mainBlob, mainFileName);
 
       // 3) Collect and merge all syllabus docx files into merged_syllabi.docx
       const allSemesterCourses = [
@@ -1689,9 +1688,37 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
         const mergedFileName = formFields.regulation && formFields.branchName
         ? `Syllabi_${formFields.regulation}_${formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_')}.docx`
         : 'Merged_Syllabi.docx';
-        saveAs(syllBlob, mergedFileName);
-        toast.success('✔️ Both files downloaded');
+
+        // Send both files to backend to compose using python-docxcompose
+        try {
+          const mergerUrl = process.env.NEXT_PUBLIC_MERGER_URL || 'http://localhost:5001/merge-curriculum-syllabi';
+          const formData = new FormData();
+          formData.append('main', new Blob([mainBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), mainFileName);
+          formData.append('syllabi', new Blob([syllBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), mergedFileName);
+          formData.append('downloadName', `${formFields.regulation || 'Curriculum'}_${formFields.branchName ? formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_') : 'Dept'}_Curriculum_With_Syllabi.docx`);
+
+          const res = await fetch(mergerUrl, { method: 'POST', body: formData });
+          if (!res.ok) {
+            // fallback: save both locally
+            saveAs(mainBlob, mainFileName);
+            saveAs(syllBlob, mergedFileName);
+            toast.error('⚠️ Server merge failed — saved files separately');
+          } else {
+            const mergedRespBlob = await res.blob();
+            const downloadName = `${formFields.regulation || 'Curriculum'}_${formFields.branchName ? formFields.branchName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_') : 'Dept'}_Curriculum_With_Syllabi.docx`;
+            saveAs(mergedRespBlob, downloadName);
+            toast.success('✔️ Merged curriculum + syllabi downloaded');
+          }
+        } catch (err) {
+          console.error('Server merge error:', err);
+          // fallback to saving separately
+          saveAs(mainBlob, mainFileName);
+          saveAs(syllBlob, mergedFileName);
+          toast.error('⚠️ Merge service unavailable — saved files separately');
+        }
       } else {
+        // No syllabi to merge; just save main curriculum
+        saveAs(mainBlob, mainFileName);
         toast.success('✔️ Main curriculum downloaded (no DOCX syllabi to merge)');
       }
     } catch (err) {
@@ -2857,25 +2884,17 @@ const CreateCurriculum: React.FC<CreateCurriculumProps> = ({
               {renderMandatoryCourseInputs()}
               <div className="mt-6 flex justify-end gap-3">
                 <Button
-                  onClick={handleGeneratePDF}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                  disabled={isGeneratingFull}
-                >
-                  {isGeneratingFull && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isGeneratingFull ? 'Generating...' : 'Generate Curriculum DOCX'}
-                </Button>
-                <Button
                   onClick={handleDownloadMainAndMergedSyllabi}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white"
                   disabled={isGeneratingMainAndSyllabi}
                 >
                   {isGeneratingMainAndSyllabi && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isGeneratingMainAndSyllabi ? 'Generating...' : 'Download Curriculum + Merged Syllabi'}
+                  {isGeneratingMainAndSyllabi ? 'Generating...' : 'Generate Curriculum Docx'}
                 </Button>
                 <Button
                   onClick={() => setIsNewVersionDialogOpen(true)}
                   disabled={isCreatingNewVersion}
-                  className="bg-green-600 hover:bg-green-700 text-white"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   {isCreatingNewVersion && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isCreatingNewVersion ? "Creating..." : "Save as New Version"}
