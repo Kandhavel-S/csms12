@@ -3,9 +3,11 @@ import type { Metadata } from "next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "EduManage - Role-Based Dashboard",
+  title: "CIT CSMS Portal",
   description: "A comprehensive role-based dashboard for educational management",
-    generator: 'v0.dev'
+  icons: {
+    icon: '/images/CIT_logo.jpg',
+  },
 }
 
 export default function RootLayout({
