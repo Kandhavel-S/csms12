@@ -49,7 +49,7 @@ interface DashboardLayoutProps {
   onTabChange?: (tab: string) => void
 }
 
-const socket = io("https://csms-x9aw.onrender.com");
+const socket = io("http://localhost:5000");
 
 
 export default function DashboardLayout({ children, user, activeTab, onTabChange }: DashboardLayoutProps) {
@@ -128,7 +128,7 @@ export default function DashboardLayout({ children, user, activeTab, onTabChange
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const res = await fetch(`https://csms-x9aw.onrender.com/api/auth/notifications/${user._id}`);
+        const res = await fetch(`http://localhost:5000/api/auth/notifications/${user._id}`);
         const data = await res.json();
         console.log("USER ID:", user?._id);
         console.log("🔔 Fetched Notifications:", data); // ✅ Log and verify
@@ -261,7 +261,7 @@ export default function DashboardLayout({ children, user, activeTab, onTabChange
                               onClick={async () => {
                                 if (!note.read) {
                                   try {
-                                    await fetch(`https://csms-x9aw.onrender.com/api/auth/notifications/${note._id}/mark-read`, {
+                                    await fetch(`http://localhost:5000/api/auth/notifications/${note._id}/mark-read`, {
                                       method: "PUT"
                                     });
                                     setNotifications((prev) =>

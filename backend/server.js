@@ -6,6 +6,7 @@ const userRoutes = require('./routes/auth');
 const http = require("http");
 const { Server } = require("socket.io");
 const syllabusRoute = require('./routes/extract-syllabus');
+const debugExtractRoute = require('./routes/debug-extract');
 
 
 dotenv.config();
@@ -19,6 +20,7 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', userRoutes);
 app.use('/extract-syllabus', syllabusRoute);
+app.use('/debug-extract', debugExtractRoute);
 
 app.head("/ping", (req, res) => {
   res.status(200).end();
