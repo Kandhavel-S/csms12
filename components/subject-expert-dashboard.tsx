@@ -188,20 +188,12 @@ const renderContent = () => {
               <Card className="hover-lift">
                 <CardHeader>
                   <CardTitle>Assigned Subjects</CardTitle>
-                  <CardDescription>Subjects you're reviewing</CardDescription>
+                  <CardDescription>Subjects you've been assigned</CardDescription>
                 </CardHeader>
                 <CardContent className="text-3xl font-bold">{reviews.length}</CardContent>
               </Card>
 
-              <Card className="hover-lift">
-                <CardHeader>
-                  <CardTitle>Received Syllabi</CardTitle>
-                  <CardDescription>Ready for review</CardDescription>
-                </CardHeader>
-                <CardContent className="text-3xl font-bold">
-                  {reviews.filter((s) => s.status === "Sent to Expert").length}
-                </CardContent>
-              </Card>
+
 
               <Card className="hover-lift">
                 <CardHeader>
@@ -213,15 +205,6 @@ const renderContent = () => {
                 </CardContent>
               </Card>
 
-              <Card className="hover-lift">
-                <CardHeader>
-                  <CardTitle>Feedback Sent</CardTitle>
-                  <CardDescription>Syllabi with feedback sent to faculty</CardDescription>
-                </CardHeader>
-                <CardContent className="text-3xl font-bold">
-                  {reviews.filter((s) => s.status === "Rejected").length}
-                </CardContent>
-              </Card>
             </div>
 
             <Card className="animate-slide-up">

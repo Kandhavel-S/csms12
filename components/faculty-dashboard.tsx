@@ -373,16 +373,6 @@ const handleSendToHOD = async (subjectId: string, file: File) => {
                 </CardContent>
               </Card>
 
-              <Card className="hover-lift">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Ready for Formatting</CardTitle>
-                  <Download className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{syllabusDrafts.filter((item) => item.status === "Approved").length}</div>
-                  <p className="text-xs text-muted-foreground">Approved by Expert</p>
-                </CardContent>
-              </Card>
 
               <Card className="hover-lift">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -398,45 +388,7 @@ const handleSendToHOD = async (subjectId: string, file: File) => {
               </Card>
             </div>
 
-            <Card className="hover-lift bg-card text-foreground transition-colors">
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>Common tasks and shortcuts</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button
-                    className="h-20 bg-primary hover:bg-primary/90 text-primary-foreground"
-                    onClick={() => setActiveTab("drafts")}
-                  >
-                    <div className="text-center">
-                      <BookOpen className="w-6 h-6 mx-auto mb-2" />
-                      <span>View Subjects</span>
-                    </div>
-                  </Button>
-
-                  <Button
-                    className="h-20 bg-primary hover:bg-primary/90 text-primary-foreground"
-                    onClick={() => setActiveTab("approved")}
-                  >
-                    <div className="text-center">
-                      <Download className="w-6 h-6 mx-auto mb-2" />
-                      <span>View Approved</span>
-                    </div>
-                  </Button>
-
-                  <Button
-                    className="h-20 bg-primary hover:bg-primary/90 text-primary-foreground"
-                    onClick={() => setActiveTab("create-final")}
-                  >
-                    <div className="text-center">
-                      <Upload className="w-6 h-6 mx-auto mb-2" />
-                      <span>Create Formatted Syllabus</span>
-                    </div>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            
 
           </div>
         )
