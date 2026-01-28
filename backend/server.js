@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const http = require('node:http');
 const userRoutes = require('./routes/auth');
 const syllabusRoute = require('./routes/extract-syllabus');
 const debugExtractRoute = require('./routes/debug-extract');
@@ -26,11 +27,14 @@ app.get('/',(req,res)=>{
   res.send('Backend server is running');
 });
 
+const server = http.createServer(app);
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log('MongoDB Connected Successfully');
-    app.listen(process.env.PORT, () => {
-      console.log(`Server running on port ${process.env.PORT}`);
-    });
-  }).catch(err => console.error(err));
+try {
+  await mongoose.connect(process.env.MONGO_URI);
+  console.log('MongoDB Connected Successfully');
+  server.listen(process.env.PORT, () => {
+    console.log(`Server running on port ${process.env.PORT}`);
+  });
+} catch (err) {
+  console.error(err);
+}
