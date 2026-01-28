@@ -399,8 +399,8 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
     }
   }
 
-  const downloadCommonSubjectsPDF = async () => {
-  const element = document.getElementById("common-subjects-table")
+  const downloadCommonCoursesPDF = async () => {
+  const element = document.getElementById("common-courses-table")
   if (!element) {
     toast.error("Table not found")
     return
@@ -421,7 +421,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight)
 
   pdf.save(
-    `Common-Subjects-${selectedCommonRegulation}-Sem-${selectedCommonSemester}.pdf`
+    `Common-Courses-${selectedCommonRegulation}-Sem-${selectedCommonSemester}.pdf`
   )
 }
 
@@ -802,8 +802,8 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
               <>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-2xl font-semibold text-purple-700">Common Subjects Across Departments</h2>
-                    <p className="text-muted-foreground">Select a regulation to view semester-wise common subjects</p>
+                    <h2 className="text-2xl font-semibold text-purple-700">Common Courses Across Departments</h2>
+                    <p className="text-muted-foreground">Select a regulation to view semester-wise common courses</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
@@ -815,7 +815,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                     >
                       <CardHeader>
                         <CardTitle className="text-lg text-purple-700">Regulation {regCode}</CardTitle>
-                        <CardDescription className="text-muted-foreground">View semester-wise common subjects</CardDescription>
+                        <CardDescription className="text-muted-foreground">View semester-wise common courses</CardDescription>
                       </CardHeader>
                     </Card>
                   ))}
@@ -853,11 +853,11 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                       Regulation {selectedCommonRegulation} - Semester {selectedCommonSemester}
                     </h2>
                     <p className="text-muted-foreground">
-                      Common subjects across departments are highlighted with the same color
+                      Common courses across departments are highlighted with the same color
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={downloadCommonSubjectsPDF}>
+                    <Button variant="outline" onClick={downloadCommonCoursesPDF}>
                       <Download className="w-4 h-4 mr-2" />
                       Download PDF
                     </Button>
@@ -870,9 +870,9 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                     </Button>
                   </div>
                 </div>
-                <div id="common-subjects-table" className="overflow-x-auto">
+                <div id="common-courses-table" className="overflow-x-auto">
                   <div className="flex justify-center my-5">
-                    <h1 className="text-xl font-bold">Common Subjects Report - Regulation {selectedCommonRegulation} - Semester {selectedCommonSemester}</h1>
+                    <h1 className="text-xl font-bold">Common Courses Report - Regulation {selectedCommonRegulation} - Semester {selectedCommonSemester}</h1>
                   </div>
                   <div className="flex justify-center my-5">
                   <table>
@@ -950,13 +950,13 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                   </table>
                   </div>
                   <div className="flex justify-center mb-14">
-                    <h4 className="text-sm font-semibold bg-gray-300 rounded px-2 py-1">* Gray Colour Represents Uncommon Subjects</h4>
+                    <h4 className="text-sm font-semibold bg-gray-300 rounded px-2 py-1">* Gray Colour Represents Uncommon Courses</h4>
                   </div>
                   
                   {commonTitles.size > 0 && (
                     <div className="legend">
                       <div className="flex justify-center my-5">
-                      <h3 className="text-xl font-bold">Common Subjects Legend</h3>
+                      <h3 className="text-xl font-bold">Common Courses Legend</h3>
                       </div>
                       <div style={{display: 'grid', placeItems:"center", gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '10px'}}>
                         {Array.from(commonTitles).sort().map((title) => {

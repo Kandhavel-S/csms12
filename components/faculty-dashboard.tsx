@@ -195,7 +195,7 @@ const handleSendToHOD = async (subjectId: string, file: File) => {
 
     if (!fileId) throw new Error("File upload failed");
 
-    // Link file to subject and update status
+    // Link file to course and update status
     const res = await fetch("https://csms-x9aw.onrender.com/api/auth/send-to-hod", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -364,7 +364,7 @@ const handleSendToHOD = async (subjectId: string, file: File) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card className="hover-lift">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Subjects</CardTitle>
+                  <CardTitle className="text-sm font-medium">Total Courses</CardTitle>
                   <FileText className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -467,7 +467,7 @@ const handleSendToHOD = async (subjectId: string, file: File) => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Subject</TableHead>
+                    <TableHead>Course</TableHead>
                     <TableHead>Regulation</TableHead>
                     <TableHead>Semester</TableHead>
                     <TableHead>Status</TableHead>
@@ -546,12 +546,12 @@ const handleSendToHOD = async (subjectId: string, file: File) => {
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="subject-name">Subject Name</Label>
+                      <Label htmlFor="subject-name">Course Name</Label>
                       <Input
                         id="subject-name"
                         value={newSubjectName}
                         onChange={(e) => setNewSubjectName(e.target.value)}
-                        placeholder="Enter subject name"
+                        placeholder="Enter course name"
                       />
                     </div>
                     <div>

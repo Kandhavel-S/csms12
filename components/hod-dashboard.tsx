@@ -133,6 +133,7 @@ export default function HODDashboard({ user }: HODDashboardProps) {
   const [trackerSemesterFilter, setTrackerSemesterFilter] = useState<string>("all");
   const [trackerStatusFilter, setTrackerStatusFilter] = useState<string>("all");
   const [trackerExpertFilter, setTrackerExpertFilter] = useState<string>("all");
+  const [trackerCourseTypeFilter, setTrackerCourseTypeFilter] = useState<string>("all");
   const [regulations, setRegulations] = useState<RegulationSummary[]>([]);
   const [regulationsLoading, setRegulationsLoading] = useState(false);
   const [regulationsError, setRegulationsError] = useState<string | null>(null);
@@ -732,8 +733,8 @@ export default function HODDashboard({ user }: HODDashboardProps) {
       setIsAddSubjectOpen(false);
       toast.success("Subject added successfully");
     } catch (err) {
-      console.error("Add subject failed:", err);
-      toast.error("Failed to add subject");
+      console.error("Add course failed:", err);
+      toast.error("Failed to add course");
     } finally {
       setIsAddingSubject(false);
     }
@@ -1390,11 +1391,11 @@ const handleLeaveWithoutSaving = () => {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <BookOpen className="h-5 w-5" />
-                    Subject Allocation
+                    Course Allocation
                   </CardTitle>
                   <CardDescription>
-                    Navigate: Regulations → Semesters → Subjects
-                    {selectedSemester && " • Drag to reorder subjects"}
+                    Navigate: Regulations → Semesters → Courses
+                    {selectedSemester && " • Drag to reorder courses"}
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
@@ -1414,13 +1415,13 @@ const handleLeaveWithoutSaving = () => {
                   {(selectedSemester || selectedVertical) && (
                     <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setIsAddSubjectOpen(true)}>
                       <Plus className="mr-2 h-4 w-4" />
-                      Add Subject
+                      Add Course
                     </Button>
                   )}
                   {selectedElectiveCategory && (
                     <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setIsAddElectiveSubjectOpen(true)}>
                       <Plus className="mr-2 h-4 w-4" />
-                      Add Subject
+                      Add Course
                     </Button>
                   )}
                   <Dialog>
@@ -1942,8 +1943,8 @@ const handleLeaveWithoutSaving = () => {
                 <div className="space-y-2">
                   {filteredSubjects.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      <p>No subjects in this {selectedSemester ? 'semester' : selectedVertical ? 'vertical' : 'category'} yet.</p>
-                      <p className="text-sm">Click "Add Subject" to create one.</p>
+                      <p>No courses in this {selectedSemester ? 'semester' : selectedVertical ? 'vertical' : 'category'} yet.</p>
+                      <p className="text-sm">Click "Add Course" to create one.</p>
                     </div>
                   ) : (
                     filteredSubjects.map((subject) => (
@@ -2029,7 +2030,7 @@ const handleLeaveWithoutSaving = () => {
               )}
             </CardContent>
 
-            {/* Add Subject Dialog */}
+            {/* Add Course Dialog */}
             <Dialog open={isAddSubjectOpen} onOpenChange={(open) => {
               setIsAddSubjectOpen(open);
               if (!open) setCourseCodeWarning("");
@@ -2038,8 +2039,8 @@ const handleLeaveWithoutSaving = () => {
                 <DialogHeader>
                   <DialogTitle>
                     {selectedVertical 
-                      ? `Add New Subject to Vertical ${romanNumerals[verticals.findIndex(v => v.id === selectedVertical)]} - ${verticals.find(v => v.id === selectedVertical)?.name}`
-                      : `Add New Subject to Semester ${selectedSemester}`
+                      ? `Add New Course to Vertical ${romanNumerals[verticals.findIndex(v => v.id === selectedVertical)]} - ${verticals.find(v => v.id === selectedVertical)?.name}`
+                      : `Add New Course to Semester ${selectedSemester}`
                     }
                   </DialogTitle>
                 </DialogHeader>
@@ -2218,17 +2219,17 @@ const handleLeaveWithoutSaving = () => {
                   )}
                   <Button onClick={handleAddSubject} className="w-full bg-purple-600 hover:bg-purple-700" disabled={isAddingSubject}>
                     {isAddingSubject && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isAddingSubject ? "Adding..." : "Add Subject"}
+                    {isAddingSubject ? "Adding..." : "Add Course"}
                   </Button>
                 </div>
               </DialogContent>
             </Dialog>
 
-            {/* Edit Subject Dialog */}
+            {/* Edit Course Dialog */}
             <Dialog open={isEditSubjectOpen} onOpenChange={setIsEditSubjectOpen}>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Edit Subject</DialogTitle>
+                  <DialogTitle>Edit Course</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
@@ -2283,7 +2284,7 @@ const handleLeaveWithoutSaving = () => {
 
                   <Button onClick={handleUpdateSubject} className="w-full bg-purple-600 hover:bg-purple-700" disabled={isUpdatingSubject}>
                     {isUpdatingSubject && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isUpdatingSubject ? "Updating..." : "Update Subject"}
+                    {isUpdatingSubject ? "Updating..." : "Update Course"}
                   </Button>
                 </div>
               </DialogContent>
@@ -2354,7 +2355,7 @@ const handleLeaveWithoutSaving = () => {
             <Dialog open={isExpertDialogOpen} onOpenChange={setIsExpertDialogOpen}>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Assign Subject Expert</DialogTitle>
+                  <DialogTitle>Assign Course Expert</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
@@ -2410,11 +2411,11 @@ const handleLeaveWithoutSaving = () => {
               </DialogContent>
             </Dialog>
 
-            {/* Delete Subject Confirmation Dialog */}
+            {/* Delete Course Confirmation Dialog */}
             <Dialog open={isDeleteSubjectOpen} onOpenChange={setIsDeleteSubjectOpen}>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Delete Subject</DialogTitle>
+                  <DialogTitle>Delete Course</DialogTitle>
                   <DialogDescription>
                     Are you sure you want to delete &quot;{subjectToDelete?.title}&quot;? This action cannot be undone. All associated data including syllabus files will be permanently removed, and notifications will be sent to assigned faculty and experts.
                   </DialogDescription>
@@ -2441,13 +2442,13 @@ const handleLeaveWithoutSaving = () => {
               </DialogContent>
             </Dialog>
 
-            {/* Add Elective/Mandatory Subject Dialog */}
+            {/* Add Elective/Mandatory Course Dialog */}
             <Dialog open={isAddElectiveSubjectOpen} onOpenChange={setIsAddElectiveSubjectOpen}>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Add Subject to {selectedElectiveCategory}</DialogTitle>
+                  <DialogTitle>Add Course to {selectedElectiveCategory}</DialogTitle>
                   <DialogDescription>
-                    Enter the subject details for {selectedElectiveCategory}
+                    Enter the course details for {selectedElectiveCategory}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
@@ -2562,7 +2563,7 @@ const handleLeaveWithoutSaving = () => {
                         });
 
                         if (!response.ok) {
-                          let errorMessage = "Failed to add subject";
+                          let errorMessage = "Failed to add course";
                           try {
                             const errorData = await response.json();
                             errorMessage = errorData.error || errorMessage;
@@ -2584,10 +2585,10 @@ const handleLeaveWithoutSaving = () => {
                         setElectiveC("");
                         setIsAddElectiveSubjectOpen(false);
                         
-                        toast.success("Subject added successfully!");
+                        toast.success("Course added successfully!");
                       } catch (error: any) {
-                        console.error("Error adding subject:", error);
-                        toast.error(error.message || "Failed to add subject");
+                        console.error("Error adding course:", error);
+                        toast.error(error.message || "Failed to add course");
                       } finally {
                         setIsAddingElectiveSubject(false);
                       }
@@ -2596,7 +2597,7 @@ const handleLeaveWithoutSaving = () => {
                     disabled={isAddingElectiveSubject}
                   >
                     {isAddingElectiveSubject && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isAddingElectiveSubject ? "Adding..." : "Add Subject"}
+                    {isAddingElectiveSubject ? "Adding..." : "Add Course"}
                   </Button>
                 </div>
               </DialogContent>
@@ -2713,6 +2714,13 @@ const handleLeaveWithoutSaving = () => {
             }
           }
 
+          // Filter by course type
+          if (trackerCourseTypeFilter && trackerCourseTypeFilter !== "all") {
+            if (subject.courseType !== trackerCourseTypeFilter) {
+              return false;
+            }
+          }
+
           return true;
         });
 
@@ -2727,7 +2735,7 @@ const handleLeaveWithoutSaving = () => {
             </CardHeader>
             <CardContent>
               {/* Filters */}
-              <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="mb-6 grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div>
                   <Label htmlFor="tracker-regulation-filter">Filter by Regulation</Label>
                   <Select
@@ -2804,9 +2812,32 @@ const handleLeaveWithoutSaving = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div>
+                  <Label htmlFor="tracker-course-type-filter">Filter by Course Type</Label>
+                  <Select
+                    value={trackerCourseTypeFilter}
+                    onValueChange={setTrackerCourseTypeFilter}
+                  >
+                    <SelectTrigger id="tracker-course-type-filter">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="HSMC">Humanities & Social Science (HSMC)</SelectItem>
+                      <SelectItem value="BSC">Basic Science (BSC)</SelectItem>
+                      <SelectItem value="ESC">Engineering Science (ESC)</SelectItem>
+                      <SelectItem value="PCC">Program Core (PCC)</SelectItem>
+                      <SelectItem value="PEC">Professional Elective (PEC)</SelectItem>
+                      <SelectItem value="OEC">Open Elective (OEC)</SelectItem>
+                      <SelectItem value="EEC">Employability Enhancement (EEC)</SelectItem>
+                      <SelectItem value="MC">Mandatory Courses (MC)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              {(trackerRegulationFilter !== "all" || trackerSemesterFilter !== "all" || trackerStatusFilter !== "all" || trackerExpertFilter !== "all") && (
+              {(trackerRegulationFilter !== "all" || trackerSemesterFilter !== "all" || trackerStatusFilter !== "all" || trackerExpertFilter !== "all" || trackerCourseTypeFilter !== "all") && (
                 <div className="mb-4">
                   <Button
                     variant="outline"
@@ -2815,6 +2846,7 @@ const handleLeaveWithoutSaving = () => {
                       setTrackerSemesterFilter("all");
                       setTrackerStatusFilter("all");
                       setTrackerExpertFilter("all");
+                      setTrackerCourseTypeFilter("all");
                     }}
                   >
                     Clear All Filters
@@ -2827,7 +2859,7 @@ const handleLeaveWithoutSaving = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Code</TableHead>
-                      <TableHead>Subject</TableHead>
+                      <TableHead>Title</TableHead>
                       <TableHead>Regulation</TableHead>
                       <TableHead>Semester</TableHead>
                       <TableHead>Expert</TableHead>

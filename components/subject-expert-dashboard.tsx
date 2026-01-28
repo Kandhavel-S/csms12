@@ -83,7 +83,7 @@ export default function SubjectExpertDashboard({ user }: SubjectExpertDashboardP
         setReviews(formattedSubjects)
         console.log(formattedSubjects)
       } catch (err) {
-        console.error("Failed to load subjects", err)
+        console.error("Failed to load courses", err)
         setReviews([])
       }
     }
@@ -123,7 +123,7 @@ export default function SubjectExpertDashboard({ user }: SubjectExpertDashboardP
 
     if (!fileId) throw new Error("File upload failed");
 
-    // Link file to subject and update status (regulationId and department are already in the subject record)
+    // Link file to course and update status (regulationId and department are already in the course record)
     const res = await fetch("https://csms-x9aw.onrender.com/api/auth/send-to-hod", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -187,8 +187,8 @@ const renderContent = () => {
             <div className="grid gap-4 md:grid-cols-3 mb-6">
               <Card className="hover-lift">
                 <CardHeader>
-                  <CardTitle>Assigned Subjects</CardTitle>
-                  <CardDescription>Subjects you've been assigned</CardDescription>
+                  <CardTitle>Assigned Courses</CardTitle>
+                  <CardDescription>Courses you've been assigned</CardDescription>
                 </CardHeader>
                 <CardContent className="text-3xl font-bold">{reviews.length}</CardContent>
               </Card>
@@ -244,7 +244,7 @@ const renderContent = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Review Assigned Subjects
+            Review Assigned Courses
           </CardTitle>
           <CardDescription>Review and respond to submitted syllabus files</CardDescription>
         </CardHeader>
@@ -345,7 +345,7 @@ const renderContent = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Code</TableHead>
-                <TableHead>Subject</TableHead>
+                <TableHead>Course</TableHead>
                 <TableHead>Regulation</TableHead>
                 <TableHead>Semester</TableHead>
                 <TableHead>Department</TableHead>
