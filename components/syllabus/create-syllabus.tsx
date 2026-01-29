@@ -55,7 +55,7 @@ const CreateSyllabus = () => {
 
   // Basic info states
   const [title, setTitle] = useState('');
-  const [subject, setSubject] = useState('');
+  const [course, setCourse] = useState('');
 
   // Form fields state
   const [formFields, setFormFields] = useState<FormFields>({
@@ -153,7 +153,7 @@ const CreateSyllabus = () => {
       const eBook = extractedData.eBook?.split('\n').filter(Boolean) || [''];
 
       setTitle(extractedData.title || '');
-      setSubject(extractedData.subject || '');
+      setCourse(extractedData.course || '');
       setFormFields({
         objectives,
         courseDescription: extractedData.courseDescription || '',
@@ -244,7 +244,7 @@ const CreateSyllabus = () => {
 
     const data: Record<string, any> = {
       COURSE_TITLE: title,
-      COURSE_CODE: subject,
+      COURSE_CODE: course,
       //  Filter out empty objectives
       OBJECTIVES: (() => {
         const filteredObjectives = filterEmptyEntries(formFields.objectives);
@@ -358,8 +358,8 @@ const CreateSyllabus = () => {
       const url = window.URL.createObjectURL(docxBlob);
       const link = document.createElement('a');
       link.href = url;
-      // Create filename from subject name and course code
-      const fileName = `${subject}_${title}.docx`.replace(/[/\\?%*:|"<>]/g, '-');
+      // Create filename from course code and title
+      const fileName = `${course}_${title}.docx`.replace(/[/\\?%*:|"<>]/g, '-');
       link.download = fileName;
       document.body.appendChild(link);
       link.click();
@@ -463,21 +463,21 @@ const CreateSyllabus = () => {
     <div className="space-y-8 max-w-7xl mx-auto p-6">
       {/* Header */}
       <div className="text-center space-y-3">
-        <h1 className="text-4xl font-bold text-gray-900">Create Syllabus</h1>
-        <p className="text-lg text-gray-500">Easily create or upload a syllabus for review</p>
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Create Syllabus</h1>
+        <p className="text-lg text-gray-500 dark:text-gray-400">Easily create or upload a syllabus for review</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Steps Sidebar */}
         <div className="col-span-1 lg:col-span-3">
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-5">
               <h2 className="text-xl font-semibold">Progress</h2>
             </div>
             <div className="p-5 space-y-4">
               <div
                 className={`flex items-center p-4 rounded-lg cursor-pointer transition-all ${
-                  currentStep === 1 ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50'
+                  currentStep === 1 ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 <div
@@ -486,7 +486,7 @@ const CreateSyllabus = () => {
                       ? 'bg-indigo-500 text-white'
                       : currentStep === 1
                       ? 'bg-indigo-500 text-white'
-                      : 'bg-gray-200 text-gray-600'
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
                   }`}
                 >
                   {currentStep > 1 ? <CheckCircle className="h-5 w-5" /> : '1'}
@@ -495,12 +495,12 @@ const CreateSyllabus = () => {
               </div>
               <div
                 className={`flex items-center p-4 rounded-lg cursor-pointer transition-all ${
-                  currentStep === 2 ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50'
+                  currentStep === 2 ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 <div
                   className={`h-10 w-10 rounded-full flex items-center justify-center text-lg font-semibold mr-3 ${
-                    currentStep === 2 ? 'bg-indigo-500 text-white' : 'bg-gray-200 text-gray-600'
+                    currentStep === 2 ? 'bg-indigo-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
                   }`}
                 >
                   2
@@ -513,7 +513,7 @@ const CreateSyllabus = () => {
 
         {/* Main Content */}
         <div className="col-span-1 lg:col-span-9">
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-6">
               <h2 className="text-2xl font-semibold">
                 {currentStep === 1 ? 'Syllabus Content' : 'Review & Submit'}
@@ -530,7 +530,7 @@ const CreateSyllabus = () => {
                 <div className="space-y-8">
                   {/* Creation Method */}
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-800">Choose Input Method</h3>
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Choose Input Method</h3>
                     <div className="flex flex-wrap gap-4">
                       <Button
                         variant={method === 'manual' ? 'default' : 'outline'}
@@ -542,7 +542,7 @@ const CreateSyllabus = () => {
                         className={`flex-1 min-w-[120px] ${
                           method === 'manual'
                             ? 'bg-indigo-600 hover:bg-indigo-700'
-                            : 'border-indigo-300 text-indigo-600 hover:bg-indigo-50'
+                            : 'border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-500 dark:text-indigo-400 dark:hover:bg-indigo-900/20'
                         }`}
                       >
                         Manual Input
@@ -557,7 +557,7 @@ const CreateSyllabus = () => {
                         className={`flex-1 min-w-[120px] ${
                           method === 'upload'
                             ? 'bg-indigo-600 hover:bg-indigo-700'
-                            : 'border-indigo-300 text-indigo-600 hover:bg-indigo-50'
+                            : 'border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-500 dark:text-indigo-400 dark:hover:bg-indigo-900/20'
                         }`}
                       >
                         Upload File
@@ -569,7 +569,7 @@ const CreateSyllabus = () => {
                   {method === 'upload' && !showManualFallback && (
                     <div
                       className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
-                        dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 bg-gray-50'
+                        dragActive ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700'
                       }`}
                       onDragOver={handleDragOver}
                       onDragLeave={handleDragLeave}
@@ -584,10 +584,10 @@ const CreateSyllabus = () => {
                       />
                       <label htmlFor="file-upload" className="cursor-pointer block">
                         <Upload className="w-16 h-16 text-indigo-400 mx-auto mb-4" />
-                        <h4 className="text-xl font-semibold text-gray-800 mb-2">
+                        <h4 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
                           Upload Syllabus File
                         </h4>
-                        <p className="text-gray-600 mb-4">
+                        <p className="text-gray-600 dark:text-gray-300 mb-4">
                           Drag and drop or click to upload .txt, .docx, or .pdf files
                         </p>
                         <span className="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition">
@@ -610,27 +610,27 @@ const CreateSyllabus = () => {
                   {(method === 'manual' || showManualFallback) && (
                     <div className="space-y-8">
                       {showManualFallback && (
-                        <Alert variant="destructive" className="bg-red-50 border-red-200">
+                        <Alert variant="destructive" className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
                           <AlertCircle className="h-5 w-5 text-red-500" />
-                          <AlertTitle className="text-red-700">Extraction Failed</AlertTitle>
-                          <AlertDescription className="text-red-600">
+                          <AlertTitle className="text-red-700 dark:text-red-400">Extraction Failed</AlertTitle>
+                          <AlertDescription className="text-red-600 dark:text-red-300">
                             Please enter the syllabus details manually below.
                           </AlertDescription>
                         </Alert>
                       )}
 
                       {/* Basic Information */}
-                      <div className="border rounded-xl bg-gray-50">
+                      <div className="border rounded-xl bg-gray-50 dark:bg-gray-700">
                         <button
                           type="button"
                           className="w-full flex justify-between items-center p-5 text-left"
                           onClick={() => toggleSection('basicInfo')}
                         >
-                          <h3 className="text-lg font-semibold text-gray-800">Basic Information</h3>
+                          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Basic Information</h3>
                           {expandedSections.basicInfo ? (
-                            <ChevronUp className="h-5 w-5 text-gray-500" />
+                            <ChevronUp className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                           ) : (
-                            <ChevronDown className="h-5 w-5 text-gray-500" />
+                            <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                           )}
                         </button>
                         {expandedSections.basicInfo && (
@@ -639,9 +639,9 @@ const CreateSyllabus = () => {
                               <div>
                                 <label
                                   htmlFor="title"
-                                  className="block text-sm font-medium text-gray-700"
+                                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                 >
-                                  Syllabus Title
+                                  Course Title
                                   <span className="ml-1 text-gray-400" title="Enter the full course title">
                                     ⓘ
                                   </span>
@@ -651,32 +651,32 @@ const CreateSyllabus = () => {
                                   type="text"
                                   value={title}
                                   onChange={(e) => setTitle(e.target.value)}
-                                  className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                  className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                   placeholder="Enter syllabus title"
                                 />
                               </div>
                               <div>
                                 <label
-                                  htmlFor="subject"
-                                  className="block text-sm font-medium text-gray-700"
+                                  htmlFor="course"
+                                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                 >
-                                  Subject Code
+                                  Course Code
                                   <span className="ml-1 text-gray-400" title="Enter the course code (e.g., CS101)">
                                     ⓘ
                                   </span>
                                 </label>
                                 <input
-                                  id="subject"
+                                  id="course"
                                   type="text"
-                                  value={subject}
-                                  onChange={(e) => setSubject(e.target.value)}
-                                  className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                  value={course}
+                                  onChange={(e) => setCourse(e.target.value)}
+                                  className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                   placeholder="E.g., CS101"
                                 />
                               </div>
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Course Objectives
                               </label>
                               {formFields.objectives.map((obj, index) => (
@@ -685,7 +685,7 @@ const CreateSyllabus = () => {
                                     type="text"
                                     value={obj}
                                     onChange={(e) => updateField('objectives', index, e.target.value)}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                     placeholder={`Objective ${index + 1}`}
                                   />
                                   {formFields.objectives.length > 1 && (
@@ -693,7 +693,7 @@ const CreateSyllabus = () => {
                                       variant="outline"
                                       size="icon"
                                       onClick={() => removeField('objectives', index)}
-                                      className="border-red-300 text-red-600 hover:bg-red-50"
+                                      className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-900/20"
                                     >
                                       <X className="h-4 w-4" />
                                     </Button>
@@ -703,13 +703,13 @@ const CreateSyllabus = () => {
                               <Button
                                 variant="outline"
                                 onClick={() => addField('objectives')}
-                                className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                                className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-500 dark:text-indigo-400 dark:hover:bg-indigo-900/20"
                               >
                                 <Plus className="h-4 w-4 mr-2" /> Add Objective
                               </Button>
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Course Description
                               </label>
                               <textarea
@@ -720,12 +720,12 @@ const CreateSyllabus = () => {
                                     courseDescription: e.target.value,
                                   }))
                                 }
-                                className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 min-h-[100px]"
+                                className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 min-h-[100px] bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                 placeholder="Enter course description..."
                               />
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Prerequisites
                               </label>
                               <textarea
@@ -736,7 +736,7 @@ const CreateSyllabus = () => {
                                     prerequisites: e.target.value,
                                   }))
                                 }
-                                className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 min-h-[100px]"
+                                className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 min-h-[100px] bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                 placeholder="Enter prerequisites..."
                               />
                             </div>
@@ -745,25 +745,25 @@ const CreateSyllabus = () => {
                       </div>
 
                       {/* Units */}
-                      <div className="border rounded-xl bg-gray-50">
+                      <div className="border rounded-xl bg-gray-50 dark:bg-gray-700">
                         <button
                           type="button"
                           className="w-full flex justify-between items-center p-5 text-left"
                           onClick={() => toggleSection('units')}
                         >
-                          <h3 className="text-lg font-semibold text-gray-800">Course Units</h3>
+                          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Course Units</h3>
                           {expandedSections.units ? (
-                            <ChevronUp className="h-5 w-5 text-gray-500" />
+                            <ChevronUp className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                           ) : (
-                            <ChevronDown className="h-5 w-5 text-gray-500" />
+                            <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                           )}
                         </button>
                         {expandedSections.units && (
                           <div className="p-5 space-y-6">
                             {formFields.units.map((unit, unitIdx) => (
-                              <div key={unitIdx} className="border rounded-lg p-4 bg-white mb-4">
+                              <div key={unitIdx} className="border rounded-lg p-4 bg-white dark:bg-gray-800 mb-4 dark:border-gray-600">
                                 <div className="flex items-center justify-between mb-2">
-                                  <h4 className="text-md font-semibold text-gray-800">Unit {unitIdx + 1}</h4>
+                                  <h4 className="text-md font-semibold text-gray-800 dark:text-white">Unit {unitIdx + 1}</h4>
                                   {formFields.units.length > 1 && (
                                     <Button
                                       variant="outline"
@@ -778,23 +778,23 @@ const CreateSyllabus = () => {
                                 <div className="flex flex-col md:flex-row gap-4 mb-2">
                                   <input
                                     type="text"
-                                    className="w-full md:w-1/2 rounded border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="w-full md:w-1/2 rounded border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                     placeholder={`Unit ${unitIdx + 1} Name`}
                                     value={unit.name}
                                     onChange={(e) => updateUnitField(unitIdx, 'name', e.target.value)}
                                   />
                                   <input
                                     type="text"
-                                    className="w-full md:w-1/4 rounded border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="w-full md:w-1/4 rounded border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                     placeholder="Hours"
                                     value={unit.hours}
                                     onChange={(e) => updateUnitField(unitIdx, 'hours', e.target.value)}
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <label className="block font-medium text-gray-700 mb-1">Content</label>
+                                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Content</label>
                                   <textarea
-                                    className="flex-1 rounded border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 min-h-[200px] w-full resize-y text-base"
+                                    className="flex-1 rounded border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white min-h-[200px] w-full resize-y text-base"
                                     placeholder="Enter unit content..."
                                     value={unit.content}
                                     onChange={(e) => updateUnitField(unitIdx, 'content', e.target.value)}
@@ -805,7 +805,7 @@ const CreateSyllabus = () => {
                             <Button
                               variant="outline"
                               onClick={() => addField('units')}
-                              className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                              className="mt-2 border-indigo-300 dark:border-indigo-600 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900"
                             >
                               <Plus className="h-4 w-4 mr-2" /> Add Unit
                             </Button>
@@ -814,26 +814,26 @@ const CreateSyllabus = () => {
                       </div>
 
                       {/* Periods and Credits */}
-                      <div className="border rounded-xl bg-gray-50">
+                      <div className="border rounded-xl bg-gray-50 dark:bg-gray-800">
                         <button
                           type="button"
                           className="w-full flex justify-between items-center p-5 text-left"
                           onClick={() => toggleSection('periods')}
                         >
-                          <h3 className="text-lg font-semibold text-gray-800">
+                          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
                             Periods and Credits
                           </h3>
                           {expandedSections.periods ? (
-                            <ChevronUp className="h-5 w-5 text-gray-500" />
+                            <ChevronUp className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                           ) : (
-                            <ChevronDown className="h-5 w-5 text-gray-500" />
+                            <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                           )}
                         </button>
                         {expandedSections.periods && (
                           <div className="p-5 space-y-6">
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
                               <div>
-                                <label className="block text-sm font-medium text-gray-700">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                   Lecture (L)
                                 </label>
                                 <input
@@ -842,13 +842,13 @@ const CreateSyllabus = () => {
                                   onChange={(e) =>
                                     setFormFields((prev) => ({ ...prev, L: e.target.value }))
                                   }
-                                  className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                  className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                   placeholder="e.g., 3"
                                   min="0"
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium text-gray-700">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                   Tutorial (T)
                                 </label>
                                 <input
@@ -857,13 +857,13 @@ const CreateSyllabus = () => {
                                   onChange={(e) =>
                                     setFormFields((prev) => ({ ...prev, T: e.target.value }))
                                   }
-                                  className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                  className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                   placeholder="e.g., 1"
                                   min="0"
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium text-gray-700">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                   Practical (P)
                                 </label>
                                 <input
@@ -872,13 +872,13 @@ const CreateSyllabus = () => {
                                   onChange={(e) =>
                                     setFormFields((prev) => ({ ...prev, P: e.target.value }))
                                   }
-                                  className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                  className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                   placeholder="e.g., 2"
                                   min="0"
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium text-gray-700">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                   Credits (C)
                                 </label>
                                 <input
@@ -887,7 +887,7 @@ const CreateSyllabus = () => {
                                   onChange={(e) =>
                                     setFormFields((prev) => ({ ...prev, C: e.target.value }))
                                   }
-                                  className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                  className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                   placeholder="e.g., 4"
                                   min="0"
                                 />
@@ -895,7 +895,7 @@ const CreateSyllabus = () => {
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                               <div>
-                                <label className="block text-sm font-medium text-gray-700">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                   Theory Periods
                                 </label>
                                 <input
@@ -907,12 +907,12 @@ const CreateSyllabus = () => {
                                       theoryPeriods: e.target.value,
                                     }))
                                   }
-                                  className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                  className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                   placeholder="e.g., 40"
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium text-gray-700">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                   Practical Periods
                                 </label>
                                 <input
@@ -924,12 +924,12 @@ const CreateSyllabus = () => {
                                       practicalPeriods: e.target.value,
                                     }))
                                   }
-                                  className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                  className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                   placeholder="e.g., 20"
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium text-gray-700">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                   Total Periods
                                 </label>
                                 <input
@@ -941,13 +941,13 @@ const CreateSyllabus = () => {
                                       totalPeriods: e.target.value,
                                     }))
                                   }
-                                  className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                  className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                   placeholder="e.g., 60"
                                 />
                               </div>
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Practical Exercises
                               </label>
                               <textarea
@@ -958,12 +958,12 @@ const CreateSyllabus = () => {
                                     practicalExercises: e.target.value,
                                   }))
                                 }
-                                className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 min-h-[100px]"
+                                className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 min-h-[100px] bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                 placeholder="Enter practical exercises..."
                               />
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Course Format
                               </label>
                               <textarea
@@ -974,12 +974,12 @@ const CreateSyllabus = () => {
                                     courseFormat: e.target.value,
                                   }))
                                 }
-                                className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 min-h-[100px]"
+                                className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 min-h-[100px] bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                 placeholder="e.g., Lecture, Lab, Group Work"
                               />
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Assessments & Grading
                               </label>
                               <textarea
@@ -990,7 +990,7 @@ const CreateSyllabus = () => {
                                     assessments: e.target.value,
                                   }))
                                 }
-                                className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 min-h-[100px]"
+                                className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 min-h-[100px] bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                 placeholder="Enter assessments and grading details..."
                               />
                             </div>
@@ -999,24 +999,24 @@ const CreateSyllabus = () => {
                       </div>
 
                       {/* Course Outcomes */}
-                      <div className="border rounded-xl bg-gray-50">
+                      <div className="border rounded-xl bg-gray-50 dark:bg-gray-800">
                         <button
                           type="button"
                           className="w-full flex justify-between items-center p-5 text-left"
                           onClick={() => toggleSection('outcomes')}
                         >
-                          <h3 className="text-lg font-semibold text-gray-800">Course Outcomes</h3>
+                          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Course Outcomes</h3>
                           {expandedSections.outcomes ? (
-                            <ChevronUp className="h-5 w-5 text-gray-500" />
+                            <ChevronUp className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                           ) : (
-                            <ChevronDown className="h-5 w-5 text-gray-500" />
+                            <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                           )}
                         </button>
                         {expandedSections.outcomes && (
                           <div className="p-5 space-y-6">
                             {formFields.courseOutcomes.map((co, index) => (
                               <div key={`co-${index}`}>
-                                <label className="block text-sm font-medium text-gray-700">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                   CO{index + 1}
                                 </label>
                                 <div className="flex items-center space-x-2 mt-2">
@@ -1024,7 +1024,7 @@ const CreateSyllabus = () => {
                                     type="text"
                                     value={co}
                                     onChange={(e) => updateField('courseOutcomes', index, e.target.value)}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                     placeholder={`Course Outcome ${index + 1}`}
                                   />
                                   {formFields.courseOutcomes.length > 1 && (
@@ -1032,7 +1032,7 @@ const CreateSyllabus = () => {
                                       variant="outline"
                                       size="icon"
                                       onClick={() => removeField('courseOutcomes', index)}
-                                      className="border-red-300 text-red-600 hover:bg-red-50"
+                                      className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-900/20"
                                     >
                                       <X className="h-4 w-4" />
                                     </Button>
@@ -1043,7 +1043,7 @@ const CreateSyllabus = () => {
                             <Button
                               variant="outline"
                               onClick={() => addField('courseOutcomes')}
-                              className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                              className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-600 dark:text-indigo-400 dark:hover:bg-indigo-900"
                             >
                               <Plus className="h-4 w-4 mr-2" /> Add Course Outcome
                             </Button>
@@ -1052,23 +1052,23 @@ const CreateSyllabus = () => {
                       </div>
 
                       {/* Resources */}
-                      <div className="border rounded-xl bg-gray-50">
+                      <div className="border rounded-xl bg-gray-50 dark:bg-gray-800">
                         <button
                           type="button"
                           className="w-full flex justify-between items-center p-5 text-left"
                           onClick={() => toggleSection('resources')}
                         >
-                          <h3 className="text-lg font-semibold text-gray-800">Resources</h3>
+                          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Resources</h3>
                           {expandedSections.resources ? (
-                            <ChevronUp className="h-5 w-5 text-gray-500" />
+                            <ChevronUp className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                           ) : (
-                            <ChevronDown className="h-5 w-5 text-gray-500" />
+                            <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                           )}
                         </button>
                         {expandedSections.resources && (
                           <div className="p-5 space-y-6">
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Text Books
                               </label>
                               {formFields.textBooks.map((tb, index) => (
@@ -1077,7 +1077,7 @@ const CreateSyllabus = () => {
                                     type="text"
                                     value={tb}
                                     onChange={(e) => updateField('textBooks', index, e.target.value)}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                     placeholder={`Text Book ${index + 1}`}
                                   />
                                   {formFields.textBooks.length > 1 && (
@@ -1085,7 +1085,7 @@ const CreateSyllabus = () => {
                                       variant="outline"
                                       size="icon"
                                       onClick={() => removeField('textBooks', index)}
-                                      className="border-red-300 text-red-600 hover:bg-red-50"
+                                      className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-900/20"
                                     >
                                       <X className="h-4 w-4" />
                                     </Button>
@@ -1095,13 +1095,13 @@ const CreateSyllabus = () => {
                               <Button
                                 variant="outline"
                                 onClick={() => addField('textBooks')}
-                                className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                                className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-600 dark:text-indigo-400 dark:hover:bg-indigo-900"
                               >
                                 <Plus className="h-4 w-4 mr-2" /> Add Text Book
                               </Button>
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Reference Books
                               </label>
                               {formFields.references.map((ref, index) => (
@@ -1110,7 +1110,7 @@ const CreateSyllabus = () => {
                                     type="text"
                                     value={ref}
                                     onChange={(e) => updateField('references', index, e.target.value)}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                     placeholder={`Reference ${index + 1}`}
                                   />
                                   {formFields.references.length > 1 && (
@@ -1118,7 +1118,7 @@ const CreateSyllabus = () => {
                                       variant="outline"
                                       size="icon"
                                       onClick={() => removeField('references', index)}
-                                      className="border-red-300 text-red-600 hover:bg-red-50"
+                                      className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-900/20"
                                     >
                                       <X className="h-4 w-4" />
                                     </Button>
@@ -1128,13 +1128,13 @@ const CreateSyllabus = () => {
                               <Button
                                 variant="outline"
                                 onClick={() => addField('references')}
-                                className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                                className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-600 dark:text-indigo-400 dark:hover:bg-indigo-900"
                               >
                                 <Plus className="h-4 w-4 mr-2" /> Add Reference
                               </Button>
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 YouTube Resources
                               </label>
                               {formFields.ytResources.map((yt, index) => (
@@ -1143,7 +1143,7 @@ const CreateSyllabus = () => {
                                     type="text"
                                     value={yt}
                                     onChange={(e) => updateField('ytResources', index, e.target.value)}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                     placeholder={`YouTube Resource ${index + 1}`}
                                   />
                                   {formFields.ytResources.length > 1 && (
@@ -1151,7 +1151,7 @@ const CreateSyllabus = () => {
                                       variant="outline"
                                       size="icon"
                                       onClick={() => removeField('ytResources', index)}
-                                      className="border-red-300 text-red-600 hover:bg-red-50"
+                                      className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-900/20"
                                     >
                                       <X className="h-4 w-4" />
                                     </Button>
@@ -1161,13 +1161,13 @@ const CreateSyllabus = () => {
                               <Button
                                 variant="outline"
                                 onClick={() => addField('ytResources')}
-                                className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                                className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-600 dark:text-indigo-400 dark:hover:bg-indigo-900"
                               >
                                 <Plus className="h-4 w-4 mr-2" /> Add YouTube Resource
                               </Button>
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Web Resources
                               </label>
                               {formFields.webResources.map((web, index) => (
@@ -1176,7 +1176,7 @@ const CreateSyllabus = () => {
                                     type="text"
                                     value={web}
                                     onChange={(e) => updateField('webResources', index, e.target.value)}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                     placeholder={`Web Resource ${index + 1}`}
                                   />
                                   {formFields.webResources.length > 1 && (
@@ -1184,7 +1184,7 @@ const CreateSyllabus = () => {
                                       variant="outline"
                                       size="icon"
                                       onClick={() => removeField('webResources', index)}
-                                      className="border-red-300 text-red-600 hover:bg-red-50"
+                                      className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-900/20"
                                     >
                                       <X className="h-4 w-4" />
                                     </Button>
@@ -1194,13 +1194,13 @@ const CreateSyllabus = () => {
                               <Button
                                 variant="outline"
                                 onClick={() => addField('webResources')}
-                                className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                                className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-600 dark:text-indigo-400 dark:hover:bg-indigo-900"
                               >
                                 <Plus className="h-4 w-4 mr-2" /> Add Web Resource
                               </Button>
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 List of Softwares
                               </label>
                               {formFields.listOfSoftwares.map((software, index) => (
@@ -1209,7 +1209,7 @@ const CreateSyllabus = () => {
                                     type="text"
                                     value={software}
                                     onChange={(e) => updateField('listOfSoftwares', index, e.target.value)}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                     placeholder={`Software ${index + 1}`}
                                   />
                                   {formFields.listOfSoftwares.length > 1 && (
@@ -1217,7 +1217,7 @@ const CreateSyllabus = () => {
                                       variant="outline"
                                       size="icon"
                                       onClick={() => removeField('listOfSoftwares', index)}
-                                      className="border-red-300 text-red-600 hover:bg-red-50"
+                                      className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-900/20"
                                     >
                                       <X className="h-4 w-4" />
                                     </Button>
@@ -1227,13 +1227,13 @@ const CreateSyllabus = () => {
                               <Button
                                 variant="outline"
                                 onClick={() => addField('listOfSoftwares')}
-                                className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                                className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-600 dark:text-indigo-400 dark:hover:bg-indigo-900"
                               >
                                 <Plus className="h-4 w-4 mr-2" /> Add Software
                               </Button>
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 E-Books
                               </label>
                               {formFields.eBook.map((ebook, index) => (
@@ -1242,7 +1242,7 @@ const CreateSyllabus = () => {
                                     type="text"
                                     value={ebook}
                                     onChange={(e) => updateField('eBook', index, e.target.value)}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                     placeholder={`E-Book ${index + 1}`}
                                   />
                                   {formFields.eBook.length > 1 && (
@@ -1250,7 +1250,7 @@ const CreateSyllabus = () => {
                                       variant="outline"
                                       size="icon"
                                       onClick={() => removeField('eBook', index)}
-                                      className="border-red-300 text-red-600 hover:bg-red-50"
+                                      className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-900/20"
                                     >
                                       <X className="h-4 w-4" />
                                     </Button>
@@ -1260,7 +1260,7 @@ const CreateSyllabus = () => {
                               <Button
                                 variant="outline"
                                 onClick={() => addField('eBook')}
-                                className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                                className="mt-2 border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-600 dark:text-indigo-400 dark:hover:bg-indigo-900"
                               >
                                 <Plus className="h-4 w-4 mr-2" /> Add E-Book
                               </Button>
@@ -1275,7 +1275,7 @@ const CreateSyllabus = () => {
                           variant="outline"
                           onClick={() => {
                             setTitle('');
-                            setSubject('');
+                            setCourse('');
                             setFormFields({
                               objectives: [''],
                               courseDescription: '',
@@ -1301,14 +1301,14 @@ const CreateSyllabus = () => {
                             });
                             toast.success('Form cleared');
                           }}
-                          className="border-gray-300 text-gray-600 hover:bg-gray-50"
+                          className="border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                         >
                           Clear Form
                         </Button>
                         <Button
                           onClick={handleGenerateDOCX}
                           disabled={isGenerating}
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                          className="bg-indigo-600 hover:bg-indigo-700 dark:hover:bg-indigo-800 text-white"
                         >
                           {isGenerating ? (
                             <>
@@ -1328,12 +1328,12 @@ const CreateSyllabus = () => {
               {/* Review & Submit */}
               {currentStep === 2 && (
                 <div className="space-y-8">
-                  <h3 className="text-lg font-semibold text-gray-800">Review Your Syllabus</h3>
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Review Your Syllabus</h3>
                   <div className="space-y-6">
                     <div>
-                      <h4 className="text-md font-semibold text-gray-800">Basic Information</h4>
+                      <h4 className="text-md font-semibold text-gray-800 dark:text-white">Basic Information</h4>
                       <p><strong>Title:</strong> {title}</p>
-                      <p><strong>Subject Code:</strong> {subject}</p>
+                      <p><strong>Course Code:</strong> {course}</p>
                       <p><strong>Objectives:</strong></p>
                       <ul className="list-disc pl-5">
                         {formFields.objectives.map((obj, index) => (
@@ -1344,7 +1344,7 @@ const CreateSyllabus = () => {
                       <p><strong>Prerequisites:</strong> {formFields.prerequisites}</p>
                     </div>
                     <div>
-                      <h4 className="text-md font-semibold text-gray-800">Course Units</h4>
+                      <h4 className="text-md font-semibold text-gray-800 dark:text-white">Course Units</h4>
                       {formFields.units.map((unit, index) => (
                         <div key={`review-unit-${index}`} className="mt-2">
                           <p><strong>Unit {index + 1}:</strong> {unit.name} ({unit.hours} hours)</p>
@@ -1353,7 +1353,7 @@ const CreateSyllabus = () => {
                       ))}
                     </div>
                     <div>
-                      <h4 className="text-md font-semibold text-gray-800">Periods and Credits</h4>
+                      <h4 className="text-md font-semibold text-gray-800 dark:text-white">Periods and Credits</h4>
                       <p><strong>Lecture (L):</strong> {formFields.L}</p>
                       <p><strong>Tutorial (T):</strong> {formFields.T}</p>
                       <p><strong>Practical (P):</strong> {formFields.P}</p>
@@ -1366,7 +1366,7 @@ const CreateSyllabus = () => {
                       <p><strong>Assessments:</strong> {formFields.assessments}</p>
                     </div>
                     <div>
-                      <h4 className="text-md font-semibold text-gray-800">Course Outcomes</h4>
+                      <h4 className="text-md font-semibold text-gray-800 dark:text-white">Course Outcomes</h4>
                       <ul className="list-disc pl-5">
                         {formFields.courseOutcomes.map((co, index) => (
                           <li key={`review-co-${index}`}>CO{index + 1}: {co}</li>
@@ -1374,7 +1374,7 @@ const CreateSyllabus = () => {
                       </ul>
                     </div>
                     <div>
-                      <h4 className="text-md font-semibold text-gray-800">Resources</h4>
+                      <h4 className="text-md font-semibold text-gray-800 dark:text-white">Resources</h4>
                       <p><strong>Text Books:</strong></p>
                       <ul className="list-disc pl-5">
                         {formFields.textBooks.map((tb, index) => (
@@ -1417,7 +1417,7 @@ const CreateSyllabus = () => {
                     <Button
                       variant="outline"
                       onClick={() => setCurrentStep(1)}
-                      className="border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                      className="border-indigo-300 dark:border-indigo-600 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900"
                     >
                       Back to Edit
                     </Button>

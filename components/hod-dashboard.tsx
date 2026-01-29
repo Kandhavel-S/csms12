@@ -1297,7 +1297,7 @@ const handleLeaveWithoutSaving = () => {
                   const verticalName = selectedVerticalObj?.name.toLowerCase() || '';
                   return regIdMatch && s.subjectType?.toLowerCase().includes(verticalName);
                 } else if (selectedElectiveCategory) {
-                  return regIdMatch && s.subjectType?.includes(selectedElectiveCategory);
+                  return regIdMatch && s.subjectType === selectedElectiveCategory;
                 }
                 return false;
               })
@@ -1399,7 +1399,7 @@ const handleLeaveWithoutSaving = () => {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  {selectedSemester && hasUnsavedOrder && (
+                  {(selectedSemester || selectedVertical || selectedElectiveCategory) && hasUnsavedOrder && (
                     <Button 
                       className="bg-green-600 hover:bg-green-700" 
                       onClick={handleSaveOrder}
@@ -1797,10 +1797,10 @@ const handleLeaveWithoutSaving = () => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <Card 
                       className="cursor-pointer hover:border-purple-500 transition-colors"
-                      onClick={() => setSelectedElectiveCategory('Open Electives - I')}
+                      onClick={() => setSelectedElectiveCategory('Open Electives-I')}
                     >
                       <CardHeader>
-                        <CardTitle className="text-lg">Open Electives - I</CardTitle>
+                        <CardTitle className="text-lg">Open Electives-I</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <p className="text-sm text-muted-foreground">
@@ -1808,7 +1808,7 @@ const handleLeaveWithoutSaving = () => {
                             const regIdMatch = s.regulationId === selectedRegulationId || 
                                               s.regulationId?._id === selectedRegulationId ||
                                               s.regulationId?.toString() === selectedRegulationId;
-                            return regIdMatch && s.courseType === 'OEC' && s.subjectType?.includes('Open Electives - I');
+                            return regIdMatch && s.courseType === 'OEC' && s.subjectType === 'Open Electives-I';
                           }).length} courses
                         </p>
                       </CardContent>
@@ -1816,10 +1816,10 @@ const handleLeaveWithoutSaving = () => {
 
                     <Card 
                       className="cursor-pointer hover:border-purple-500 transition-colors"
-                      onClick={() => setSelectedElectiveCategory('Open Electives - II')}
+                      onClick={() => setSelectedElectiveCategory('Open Electives-II')}
                     >
                       <CardHeader>
-                        <CardTitle className="text-lg">Open Electives - II</CardTitle>
+                        <CardTitle className="text-lg">Open Electives-II</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <p className="text-sm text-muted-foreground">
@@ -1827,7 +1827,7 @@ const handleLeaveWithoutSaving = () => {
                             const regIdMatch = s.regulationId === selectedRegulationId || 
                                               s.regulationId?._id === selectedRegulationId ||
                                               s.regulationId?.toString() === selectedRegulationId;
-                            return regIdMatch && s.courseType === 'OEC' && s.subjectType?.includes('Open Electives - II');
+                            return regIdMatch && s.courseType === 'OEC' && s.subjectType === 'Open Electives-II';
                           }).length} courses
                         </p>
                       </CardContent>
@@ -1843,10 +1843,10 @@ const handleLeaveWithoutSaving = () => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <Card 
                       className="cursor-pointer hover:border-purple-500 transition-colors"
-                      onClick={() => setSelectedElectiveCategory('Mandatory Course - I')}
+                      onClick={() => setSelectedElectiveCategory('Mandatory Courses-I')}
                     >
                       <CardHeader>
-                        <CardTitle className="text-lg">Mandatory Course - I</CardTitle>
+                        <CardTitle className="text-lg">Mandatory Courses-I</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <p className="text-sm text-muted-foreground">
@@ -1854,7 +1854,7 @@ const handleLeaveWithoutSaving = () => {
                             const regIdMatch = s.regulationId === selectedRegulationId || 
                                               s.regulationId?._id === selectedRegulationId ||
                                               s.regulationId?.toString() === selectedRegulationId;
-                            return regIdMatch && s.courseType === 'MC' && s.subjectType?.includes('Mandatory Course - I');
+                            return regIdMatch && s.courseType === 'MC' && s.subjectType === 'Mandatory Courses-I';
                           }).length} courses
                         </p>
                       </CardContent>
@@ -1862,10 +1862,10 @@ const handleLeaveWithoutSaving = () => {
 
                     <Card 
                       className="cursor-pointer hover:border-purple-500 transition-colors"
-                      onClick={() => setSelectedElectiveCategory('Mandatory Course - II')}
+                      onClick={() => setSelectedElectiveCategory('Mandatory Courses-II')}
                     >
                       <CardHeader>
-                        <CardTitle className="text-lg">Mandatory Course - II</CardTitle>
+                        <CardTitle className="text-lg">Mandatory Courses-II</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <p className="text-sm text-muted-foreground">
@@ -1873,7 +1873,7 @@ const handleLeaveWithoutSaving = () => {
                             const regIdMatch = s.regulationId === selectedRegulationId || 
                                               s.regulationId?._id === selectedRegulationId ||
                                               s.regulationId?.toString() === selectedRegulationId;
-                            return regIdMatch && s.courseType === 'MC' && s.subjectType?.includes('Mandatory Course - II');
+                            return regIdMatch && s.courseType === 'MC' && s.subjectType === 'Mandatory Courses-II';
                           }).length} courses
                         </p>
                       </CardContent>
